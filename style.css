@@ -1,0 +1,341 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  color: #cfd6e4;
+  font-family: "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+#view {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+.hud-panel {
+  position: fixed;
+  z-index: 10;
+  background: rgba(8, 12, 20, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  user-select: none;
+}
+
+.hud-panel.small {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+#hud-top-left {
+  top: 12px;
+  left: 12px;
+  min-width: 220px;
+}
+
+#hud-bottom-right {
+  bottom: 12px;
+  right: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+  color: #fff;
+}
+
+.green {
+  color: #5dd17a;
+  font-variant-numeric: tabular-nums;
+}
+
+.red {
+  color: #f06464;
+  font-variant-numeric: tabular-nums;
+}
+
+.sep {
+  color: #50607a;
+}
+
+button,
+select {
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.25);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover,
+select:hover {
+  background: rgba(60, 80, 110, 0.95);
+}
+
+#result-banner {
+  position: fixed;
+  z-index: 20;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 18px 36px;
+  font-size: 28px;
+  font-weight: 700;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  text-align: center;
+  pointer-events: none;
+}
+
+#result-banner.green {
+  color: #7df09a;
+  border-color: rgba(125, 240, 154, 0.4);
+}
+
+#result-banner.red {
+  color: #ff8080;
+  border-color: rgba(255, 128, 128, 0.4);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* --- Per-team roster panels --------------------------------------------- */
+.roster-panel {
+  position: fixed;
+  top: 150px;
+  bottom: 50px;
+  width: 200px;
+  z-index: 9;
+  background: rgba(8, 12, 20, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 8px;
+  padding: 8px 6px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  user-select: none;
+}
+
+#green-roster {
+  left: 12px;
+}
+#red-roster {
+  right: 12px;
+}
+
+.roster-title {
+  font-weight: 600;
+  font-size: 13px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(120, 150, 200, 0.18);
+  margin-bottom: 4px;
+}
+
+.fleet-config {
+  margin-bottom: 5px;
+  padding-bottom: 5px;
+  border-bottom: 1px dashed rgba(120, 150, 200, 0.12);
+}
+.cfg-label {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-bottom: 3px;
+}
+.cfg-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cfg-row label {
+  font-size: 10px;
+  opacity: 0.6;
+  width: 22px;
+  text-align: right;
+}
+.cfg-input {
+  width: 52px;
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.25);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 11px;
+}
+.cfg-input:focus {
+  outline: none;
+  border-color: rgba(255, 208, 0, 0.5);
+}
+
+/* Per-fleet violin plot of the surviving ships' damage modifiers. Sits
+   between the fleet config block and the legend; takes a fixed slice of
+   the panel height while the ship list (flex: 1) absorbs whatever is
+   left, scrolling internally if needed. */
+.violin-panel {
+  height: 120px;
+  margin: 2px 0 6px 0;
+  padding: 0;
+  border-bottom: 1px dashed rgba(120, 150, 200, 0.12);
+  display: block;
+}
+.violin-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.roster-legend {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 10px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed rgba(120, 150, 200, 0.12);
+}
+.roster-legend .lg {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  margin-right: 1px;
+}
+.lg.shield {
+  background: #4ea3ff;
+}
+.lg.armor {
+  background: #d6a44a;
+}
+.lg.struct {
+  background: #c0c0c0;
+}
+
+.roster-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 150, 200, 0.4) transparent;
+}
+.roster-list::-webkit-scrollbar {
+  width: 6px;
+}
+.roster-list::-webkit-scrollbar-thumb {
+  background: rgba(120, 150, 200, 0.4);
+  border-radius: 3px;
+}
+
+.ship-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.ship-row + .ship-row {
+  margin-top: 1px;
+}
+.ship-row.dead {
+  opacity: 0.32;
+}
+.ship-row.dead .ship-label {
+  text-decoration: line-through;
+}
+.ship-row.leader .ship-label::after {
+  content: " *";
+  color: #ffd000;
+}
+.ship-row.primary {
+  background: rgba(255, 208, 0, 0.18);
+  box-shadow: inset 2px 0 0 #ffd000;
+}
+
+.ship-label {
+  width: 30px;
+  font-family: "Consolas", "Menlo", monospace;
+  letter-spacing: 0.5px;
+  color: #d0d8e6;
+}
+
+/* Hardener pip: dim "H" by default; lights up cyan + glow when on. */
+.hard-pip {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  line-height: 11px;
+  text-align: center;
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(170, 200, 230, 0.28);
+  border: 1px solid rgba(170, 200, 230, 0.18);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.ship-row.hardened .hard-pip {
+  color: #0a1828;
+  background: #4ea3ff;
+  border-color: #4ea3ff;
+  box-shadow: 0 0 4px rgba(78, 163, 255, 0.85);
+}
+.ship-row.hardened .bar.shield {
+  box-shadow: inset 0 0 0 1px rgba(78, 163, 255, 0.55);
+}
+
+.bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.bar .fill {
+  height: 100%;
+  width: 100%;
+  transition: width 100ms linear;
+}
+.bar.shield .fill {
+  background: #4ea3ff;
+}
+.bar.armor .fill {
+  background: #d6a44a;
+}
+.bar.struct .fill {
+  background: #c0c0c0;
+}

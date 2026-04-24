@@ -1,0 +1,2 @@
+time_to_lock = 3.5s
+time_between_primary_target_calls = 5s
