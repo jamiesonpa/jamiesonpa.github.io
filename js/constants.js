@@ -64,7 +64,9 @@ export const TURRET_SIG_RESOLUTION = 400;
 
 // --- Sim tuning -------------------------------------------------------------
 export const SIM = {
-  teamSize: 50,
+  // Per-fleet team size now lives in FLEET_CONFIG.<team>.teamSize so each
+  // side can be independently sized between battles. Battle._spawn reads
+  // those values directly.
   startSeparation: 50_000, // m, between the two leader spawn points
   // Followers form a 3D "blob" trailing behind the leader. Slots are sampled
   // inside a half-ellipsoid (z <= 0 in leader-local frame, i.e. behind) with
@@ -100,6 +102,9 @@ export const SIM = {
 // already mid-react / mid-lock continue with their existing timers.
 export const FLEET_CONFIG = {
   green: {
+    // Number of ships in this fleet (1 leader + (teamSize - 1) followers).
+    // Applied at the next Battle spawn -- i.e., on Restart.
+    teamSize: 50,
     reactionMin: 0.0, // seconds; lower bound of uniform reaction roll
     reactionMax: 1.0, // seconds; upper bound of uniform reaction roll
     // Per-ship hardener-on reaction. Counted from the moment THIS ship is
@@ -115,6 +120,7 @@ export const FLEET_CONFIG = {
     damageSigma: 0.4,
   },
   red: {
+    teamSize: 50,
     reactionMin: 0.0,
     reactionMax: 1.0,
     hardenerReactionMin: 0.5,

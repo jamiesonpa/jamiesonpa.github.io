@@ -42,6 +42,21 @@
     <div id="green-roster" class="roster-panel">
       <div class="roster-title green">Green Fleet</div>
       <div class="fleet-config">
+        <div class="cfg-label" title="Applies on next Restart">
+          Fleet size (restart)
+        </div>
+        <div class="cfg-row">
+          <label>ships</label>
+          <input
+            type="number"
+            class="cfg-input"
+            data-team="green"
+            data-key="teamSize"
+            min="1"
+            max="200"
+            step="1"
+          />
+        </div>
         <div class="cfg-label">Reaction time (s)</div>
         <div class="cfg-row">
           <label>min</label>
@@ -126,6 +141,21 @@
     <div id="red-roster" class="roster-panel">
       <div class="roster-title red">Red Fleet</div>
       <div class="fleet-config">
+        <div class="cfg-label" title="Applies on next Restart">
+          Fleet size (restart)
+        </div>
+        <div class="cfg-row">
+          <label>ships</label>
+          <input
+            type="number"
+            class="cfg-input"
+            data-team="red"
+            data-key="teamSize"
+            min="1"
+            max="200"
+            step="1"
+          />
+        </div>
         <div class="cfg-label">Reaction time (s)</div>
         <div class="cfg-row">
           <label>min</label>

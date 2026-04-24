@@ -55,15 +55,25 @@ export class Battle {
     this.leaders.red = redLeader;
     this.ships.push(greenLeader, redLeader);
 
-    const slots = buildFormationSlots(SIM.teamSize, SIM.formationMinSpacing, {
+    // Per-fleet team size, clamped to >= 1 so we always have a leader.
+    const greenSize = Math.max(1, Math.floor(FLEET_CONFIG.green.teamSize));
+    const redSize = Math.max(1, Math.floor(FLEET_CONFIG.red.teamSize));
+
+    const blob = {
       x: SIM.formationBlobX,
       y: SIM.formationBlobY,
       z: SIM.formationBlobZ,
-    });
+    };
+
+    // Build a separate formation per team so each side gets its own
+    // properly-sized blob (and so changing one team's size doesn't waste
+    // slot-packing effort for the other team).
+    const greenSlots = buildFormationSlots(greenSize, SIM.formationMinSpacing, blob);
+    const redSlots = buildFormationSlots(redSize, SIM.formationMinSpacing, blob);
 
     // Helper: given the leader's basis, compute the world position of a slot
     // and spawn a follower there with the leader's initial velocity.
-    const spawnFollowers = (leader, count) => {
+    const spawnFollowers = (leader, slots, count) => {
       for (let i = 0; i < count; i++) {
         const slot = slots[i];
         const worldOff = new THREE.Vector3()
@@ -82,8 +92,8 @@ export class Battle {
       }
     };
 
-    spawnFollowers(greenLeader, SIM.teamSize - 1);
-    spawnFollowers(redLeader, SIM.teamSize - 1);
+    spawnFollowers(greenLeader, greenSlots, greenSize - 1);
+    spawnFollowers(redLeader, redSlots, redSize - 1);
   }
 
   // If a leader dies, promote the surviving teammate closest to the old

@@ -158,7 +158,16 @@ function updateViolins(b, nowMs) {
 
 // --- Per-fleet config inputs ---------------------------------------------
 // Two-way bind .cfg-input fields to FLEET_CONFIG. Edits take effect on the
-// next reaction roll a ship makes (i.e., when a new primary is called).
+// next reaction roll a ship makes (i.e., when a new primary is called),
+// EXCEPT for spawn-time keys (teamSize, damageMean, damageSigma) which
+// only take effect on Restart.
+//
+// Keys that must be parsed as integers and have a per-key minimum.
+// teamSize must be >= 1 so we always have at least the leader.
+const INTEGER_KEYS = {
+  teamSize: { min: 1 },
+};
+
 function bindFleetConfigInputs() {
   const inputs = document.querySelectorAll(".cfg-input");
   for (const input of inputs) {
@@ -169,9 +178,17 @@ function bindFleetConfigInputs() {
     input.value = FLEET_CONFIG[team][key];
 
     input.addEventListener("change", () => {
-      let v = parseFloat(input.value);
-      if (Number.isNaN(v)) v = FLEET_CONFIG[team][key];
-      v = Math.max(0, v);
+      const intSpec = INTEGER_KEYS[key];
+      let v;
+      if (intSpec) {
+        v = parseInt(input.value, 10);
+        if (Number.isNaN(v)) v = FLEET_CONFIG[team][key];
+        v = Math.max(intSpec.min, Math.floor(v));
+      } else {
+        v = parseFloat(input.value);
+        if (Number.isNaN(v)) v = FLEET_CONFIG[team][key];
+        v = Math.max(0, v);
+      }
       FLEET_CONFIG[team][key] = v;
 
       // Maintain min <= max for any "<prefix>Min" / "<prefix>Max" pair on
