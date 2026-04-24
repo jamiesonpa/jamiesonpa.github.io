@@ -312,6 +312,19 @@ select:hover {
 .ship-row.hardened .bar.shield {
   box-shadow: inset 0 0 0 1px rgba(78, 163, 255, 0.55);
 }
+/* Overheated supersedes the plain hardened look: the H goes orange and
+   gets a stronger glow to read as "running hot". The shield bar gets a
+   matching orange inset accent so an at-a-glance scan of the roster
+   surfaces who's cooking modules. */
+.ship-row.overheated .hard-pip {
+  color: #1a0a02;
+  background: #ff8a3d;
+  border-color: #ff8a3d;
+  box-shadow: 0 0 6px rgba(255, 138, 61, 0.95);
+}
+.ship-row.overheated .bar.shield {
+  box-shadow: inset 0 0 0 1px rgba(255, 138, 61, 0.65);
+}
 
 .bars {
   flex: 1;

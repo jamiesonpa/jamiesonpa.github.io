@@ -254,16 +254,35 @@ export class Battle {
     }
   }
 
-  // Flip hardenersOn for any ship whose activation time has arrived. Trigger
-  // and activation time are seeded inside _updateLocks on the first enemy
-  // lock; this just consumes them. Hardeners stay on for the rest of the
-  // battle once flipped (no cycle / capacitor model).
+  // Flip hardenersOn for any ship whose activation time has arrived, and
+  // flip hardenersOverheated for any ship whose overheat time has arrived.
+  // Trigger / activation time for hardeners is seeded inside _updateLocks
+  // on the first enemy lock; the overheat trigger is seeded HERE on the
+  // tick that hardeners actually come online (so the overheat reaction is
+  // counted from "hardeners on", not from "first locked"). Once flipped,
+  // both flags stay on for the rest of the battle (no cycle / cap / burnout
+  // model in v1).
   _updateHardeners() {
     for (const s of this.ships) {
-      if (!s.alive || s.hardenersOn) continue;
-      if (s.hardenerActivateAt === null) continue;
-      if (this.simTime >= s.hardenerActivateAt) {
-        s.hardenersOn = true;
+      if (!s.alive) continue;
+
+      if (!s.hardenersOn) {
+        if (s.hardenerActivateAt === null) continue;
+        if (this.simTime >= s.hardenerActivateAt) {
+          s.hardenersOn = true;
+          // Seed the overheat reaction now that hardeners are live.
+          // Per-team config; uniform roll in [min, max], clamped to >= 0.
+          const ocfg = FLEET_CONFIG[s.team];
+          const olo = Math.max(0, ocfg.overheatReactionMin);
+          const ohi = Math.max(olo, ocfg.overheatReactionMax);
+          s.overheatActivateAt =
+            this.simTime + olo + Math.random() * (ohi - olo);
+        }
+      } else if (!s.hardenersOverheated) {
+        if (s.overheatActivateAt === null) continue;
+        if (this.simTime >= s.overheatActivateAt) {
+          s.hardenersOverheated = true;
+        }
       }
     }
   }

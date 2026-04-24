@@ -93,6 +93,7 @@ function updateRoster(b, nowMs) {
       r.row.classList.toggle("primary", primaryIds.has(s.id));
     }
     r.row.classList.toggle("hardened", !!s.hardenersOn);
+    r.row.classList.toggle("overheated", !!s.hardenersOverheated);
     // Promotion: a follower may have been promoted to leader mid-battle.
     if (s.isLeader) r.row.classList.add("leader");
   }

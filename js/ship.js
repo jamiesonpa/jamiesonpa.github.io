@@ -62,15 +62,23 @@ export class Ship {
 
     // Shield-hardener state. Hardeners start OFF (passive resist profile).
     // They activate once, after the per-ship hardener-reaction roll that
-    // begins the moment this ship is first locked by any enemy.
+    // begins the moment this ship is first locked by any enemy. After they
+    // come on, a separate overheat-reaction roll begins; once it elapses
+    // the ship overheats its hardeners (better resists, no burnout model).
     //   firstLockedAt        - sim time of the first completed enemy lock
     //                          (null until that happens)
     //   hardenerActivateAt   - sim time at which hardenersOn flips to true
     //                          (null until firstLockedAt is set)
     //   hardenersOn          - true once activated; never turns back off
+    //   overheatActivateAt   - sim time at which hardenersOverheated flips
+    //                          (null until hardenersOn flips)
+    //   hardenersOverheated  - true once overheat reaction elapses; never
+    //                          turns back off
     this.firstLockedAt = null;
     this.hardenerActivateAt = null;
     this.hardenersOn = false;
+    this.overheatActivateAt = null;
+    this.hardenersOverheated = false;
 
     // Per-ship damage modifier (heat sinks + skills + hull bonus). Drawn
     // once at spawn from the team's normal distribution; clamped to >= 0
@@ -153,7 +161,9 @@ export class Ship {
     let emRemaining = emRaw;
     let thRemaining = thRaw;
 
-    const shieldResists = this.hardenersOn
+    const shieldResists = this.hardenersOverheated
+      ? NIGHTMARE.shieldResistsHardenersOverheated
+      : this.hardenersOn
       ? NIGHTMARE.shieldResistsHardenersOn
       : NIGHTMARE.shieldResistsBase;
 

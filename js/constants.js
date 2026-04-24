@@ -25,10 +25,13 @@ export const NIGHTMARE = {
   abSpeed: 791, // m/s, with Domination 100MN AB
 
   // --- Defenses ------------------------------------------------------------
-  // Two shield resist profiles: ships start with hardeners OFF (passive
-  // values from nightmare_stats.txt) and switch to hardeners ON after a
-  // per-ship reaction delay that begins the moment they are first locked
-  // by an enemy. Armor / structure are unchanged by hardeners.
+  // Three shield resist profiles, applied in sequence as the pilot reacts:
+  //   shieldResistsBase                - hardeners OFF (passive only)
+  //   shieldResistsHardenersOn         - hardeners ON (active modules running)
+  //   shieldResistsHardenersOverheated - hardeners ON + overheated
+  // The transitions OFF -> ON and ON -> OVERHEATED are independent per-ship
+  // reaction delays driven from FLEET_CONFIG (see hardenerReaction* and
+  // overheatReaction* below). Armor / structure are unchanged by hardeners.
   shieldHP: 40_700,
   shieldResistsBase: {
     em: 0.431,
@@ -41,6 +44,15 @@ export const NIGHTMARE = {
     thermal: 0.835,
     kinetic: 0.688,
     explosive: 0.74,
+  },
+  // Overheated values: roughly +15% to the active "hardener bonus"
+  // (the resist gained from BAse -> On). Capped at 0.95 to avoid
+  // unrealistic ~100% mitigation. Edit freely.
+  shieldResistsHardenersOverheated: {
+    em: 0.890,
+    thermal: 0.890,
+    kinetic: 0.720,
+    explosive: 0.770,
   },
 
   armorHP: 11_900,
@@ -112,6 +124,12 @@ export const FLEET_CONFIG = {
     // its 3.5 s lock cycle on it). Roll is fresh per ship per first-lock.
     hardenerReactionMin: 0.5,
     hardenerReactionMax: 3.0,
+    // Per-ship overheat reaction. Counted from the moment THIS ship's
+    // hardeners come on (i.e., from hardenerActivateAt). Models the pilot
+    // noticing they're being shot hard enough to justify cooking modules.
+    // Roll is fresh per ship per hardener-activation.
+    overheatReactionMin: 1.0,
+    overheatReactionMax: 5.0,
     // Per-ship damage modifier (heat sinks + skills + hull bonus). Rolled
     // ONCE at ship spawn from N(damageMean, damageSigma^2), clamped to >= 0.
     // Edits to these values only affect ships spawned by the NEXT battle
@@ -125,6 +143,8 @@ export const FLEET_CONFIG = {
     reactionMax: 1.0,
     hardenerReactionMin: 0.5,
     hardenerReactionMax: 3.0,
+    overheatReactionMin: 1.0,
+    overheatReactionMax: 5.0,
     damageMean: 2.5,
     damageSigma: 0.4,
   },
