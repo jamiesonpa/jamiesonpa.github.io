@@ -185,7 +185,14 @@ export class Battle {
   // mid-promotion, fall back to the first surviving subfleet member as
   // the reference point. Returns null if the subfleet is extinct or no
   // enemies remain.
-  _pickPrimary(team, subfleetId) {
+  //
+  // `takenIds` (optional Set of ship ids) lets the caller exclude enemies
+  // already chosen as primary by sibling subfleets on the same team, so
+  // sibling subfleets fan their fire across distinct targets instead of
+  // dogpiling the same ship. If every reachable enemy is taken (e.g.,
+  // more subfleets than enemies remain), we fall back to the nearest
+  // taken enemy so the subfleet still has SOMETHING to shoot.
+  _pickPrimary(team, subfleetId, takenIds = null) {
     const enemyTeam = team === "green" ? "red" : "green";
     const sub = this.subfleets[team][subfleetId];
     const leader = sub.leader;
@@ -204,23 +211,56 @@ export class Battle {
 
     let best = null;
     let bestD = Infinity;
+    let fallbackBest = null;
+    let fallbackBestD = Infinity;
     for (const o of this.ships) {
       if (!o.alive || o.team !== enemyTeam) continue;
       const d = ref.distanceToSquared(o.position);
+      if (takenIds && takenIds.has(o.id)) {
+        if (d < fallbackBestD) {
+          fallbackBestD = d;
+          fallbackBest = o;
+        }
+        continue;
+      }
       if (d < bestD) {
         bestD = d;
         best = o;
       }
     }
-    return best;
+    return best || fallbackBest;
   }
 
+  // For each team: keep existing live primaries (so we don't disrupt
+  // already-progressing locks), but ensure they are unique across the
+  // team's subfleets. If two subfleets share a live primary -- which
+  // shouldn't happen now but is checked defensively -- the higher-index
+  // subfleet drops its primary and re-picks. Subfleets that need a fresh
+  // primary then pick one that's NOT already claimed by a sibling
+  // subfleet, with a fallback to "any nearest enemy" if every enemy is
+  // already claimed (more subfleets than surviving enemies).
   _updatePrimaries() {
     for (const team of ["green", "red"]) {
+      // 1) Defensive dedup of currently-live primaries.
+      const seen = new Set();
       for (const sub of this.subfleets[team]) {
-        const cur = sub.primary;
-        if (!cur || !cur.alive) {
-          sub.primary = this._pickPrimary(team, sub.id);
+        if (sub.primary && sub.primary.alive) {
+          if (seen.has(sub.primary.id)) {
+            sub.primary = null;
+          } else {
+            seen.add(sub.primary.id);
+          }
+        }
+      }
+      // 2) takenIds = ids still claimed after the dedup pass.
+      const takenIds = new Set(seen);
+      // 3) Re-pick for any subfleet without a live primary, excluding
+      //    siblings' claims; add the new pick to takenIds so the next
+      //    sibling subfleet can't immediately collide with it.
+      for (const sub of this.subfleets[team]) {
+        if (!sub.primary || !sub.primary.alive) {
+          sub.primary = this._pickPrimary(team, sub.id, takenIds);
+          if (sub.primary) takenIds.add(sub.primary.id);
         }
       }
     }
