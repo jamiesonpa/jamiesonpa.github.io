@@ -160,14 +160,18 @@ function _recomputeLeaderHeading(leader, enemyLeader, simTime) {
   leader.headingExpiry = simTime + SIM.headingCommitTime + jitter;
 }
 
-function steerLeader(leader, enemyLeader, simTime, dt) {
-  if (!enemyLeader || !enemyLeader.alive) {
-    // No enemy leader: just keep current velocity / basis.
+// `engagementRef` is the enemy ship the leader uses to drive its heading
+// commitments and range thresholds. Was always the enemy team leader; with
+// subfleets each subfleet leader steers against its OWN primary call so
+// independent subfleets can pursue different enemy concentrations.
+function steerLeader(leader, engagementRef, simTime, dt) {
+  if (!engagementRef || !engagementRef.alive) {
+    // No engagement reference: just keep current velocity / basis.
     updateLeaderBasis(leader);
     return;
   }
 
-  const range = leader.position.distanceTo(enemyLeader.position);
+  const range = leader.position.distanceTo(engagementRef.position);
   const expired =
     !leader.committedHeading ||
     leader.headingExpiry === undefined ||
@@ -176,7 +180,7 @@ function steerLeader(leader, enemyLeader, simTime, dt) {
   const tooFar = range > SIM.criticalFarRange;
 
   if (expired || tooClose || tooFar) {
-    _recomputeLeaderHeading(leader, enemyLeader, simTime);
+    _recomputeLeaderHeading(leader, engagementRef, simTime);
   }
 
   // Leaders maintain constant AB speed and steer by rotating their velocity
@@ -222,18 +226,24 @@ function steerFollower(follower, leader, dt) {
 }
 
 // --- Top-level driver -------------------------------------------------------
+// Subfleet-aware. Each subfleet's leader steers against its own primary
+// target (independent engagement reference per subfleet); each follower
+// chases its own subfleet's leader. Subfleets with a null leader (extinct)
+// or null primary (no enemies left in range) are skipped harmlessly.
 export function updateAI(battle, dt) {
-  const { ships, leaders, simTime } = battle;
+  const { ships, subfleets, simTime } = battle;
   // Steer leaders first so followers see the new basis.
   for (const team of ["green", "red"]) {
-    const leader = leaders[team];
-    if (!leader || !leader.alive) continue;
-    const enemyTeam = team === "green" ? "red" : "green";
-    steerLeader(leader, leaders[enemyTeam], simTime, dt);
+    for (const sub of subfleets[team]) {
+      const leader = sub.leader;
+      if (!leader || !leader.alive) continue;
+      steerLeader(leader, sub.primary, simTime, dt);
+    }
   }
   for (const s of ships) {
     if (!s.alive || s.isLeader) continue;
-    const leader = leaders[s.team];
+    const sub = subfleets[s.team][s.subfleetId];
+    const leader = sub ? sub.leader : null;
     steerFollower(s, leader, dt);
   }
 }

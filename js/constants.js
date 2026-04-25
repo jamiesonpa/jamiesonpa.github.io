@@ -89,6 +89,10 @@ export const SIM = {
   formationBlobX: 2_800, // m, half-width of trailing blob (left/right)
   formationBlobY: 1_300, // m, half-height (up/down)
   formationBlobZ: 6_000, // m, depth of blob behind leader
+  // Vertical spacing between sibling subfleets at spawn. Each subfleet is
+  // stacked along Y so the blobs (formationBlobY = 1300 half-height) don't
+  // overlap and the camera can immediately see them as distinct groups.
+  subfleetVerticalSpacing: 4_000, // m
   idealRange: 36_000, // m, leader prefers to sit just inside optimal
   idealRangeBand: 2_000, // m, dead-zone hysteresis around idealRange
   minRange: 28_000, // m, leader pulls away if closer than this
@@ -117,6 +121,12 @@ export const FLEET_CONFIG = {
     // Number of ships in this fleet (1 leader + (teamSize - 1) followers).
     // Applied at the next Battle spawn -- i.e., on Restart.
     teamSize: 50,
+    // Number of subfleets to split the team into at spawn. Each subfleet is
+    // a fully-independent unit: own leader (own primary-target call), own
+    // formation, own steering, own lock progression. teamSize is divided
+    // as evenly as possible across them. Clamped to <= teamSize at spawn.
+    // Applied on Restart.
+    subfleetCount: 1,
     reactionMin: 0.0, // seconds; lower bound of uniform reaction roll
     reactionMax: 1.0, // seconds; upper bound of uniform reaction roll
     // Per-ship hardener-on reaction. Counted from the moment THIS ship is
@@ -139,6 +149,7 @@ export const FLEET_CONFIG = {
   },
   red: {
     teamSize: 50,
+    subfleetCount: 1,
     reactionMin: 0.0,
     reactionMax: 1.0,
     hardenerReactionMin: 0.5,

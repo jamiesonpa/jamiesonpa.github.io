@@ -8,10 +8,14 @@ const LOCK_TIME = 3.5; // seconds, per-ship lock-on
 export class Battle {
   constructor() {
     this.ships = [];
-    this.leaders = { green: null, red: null };
-    // Each team's leader calls a primary target. All ships on that team
-    // react -> lock -> fire on it. Re-picked when the current primary dies.
-    this.primary = { green: null, red: null };
+    // Per-team list of subfleets. Each entry is { id, leader, primary }:
+    //   id      : index in the array; matches Ship.subfleetId for members
+    //   leader  : Ship currently leading this subfleet (null if extinct)
+    //   primary : Ship the subfleet's leader is calling as primary target
+    //             (null if no live enemies / leader gone)
+    // Entries are never removed mid-battle so subfleetId stays a stable
+    // index. A wiped-out subfleet keeps its slot with leader/primary = null.
+    this.subfleets = { green: [], red: [] };
     this.simTime = 0;
     this.over = false;
     this.winner = null;
@@ -22,94 +26,113 @@ export class Battle {
     this._spawn();
   }
 
-  _spawn() {
-    // Place green leader at -startSeparation/2 along x; red leader at +.
-    // Initial velocity perpendicular (along z) but opposite signs to start
-    // them passing each other, which is the optimal opening for transversal.
-    const halfSep = SIM.startSeparation / 2;
-
-    const greenLeaderPos = new THREE.Vector3(-halfSep, 0, 0);
-    const redLeaderPos = new THREE.Vector3(+halfSep, 0, 0);
-
-    const greenLeader = new Ship({
-      team: "green",
-      isLeader: true,
-      position: greenLeaderPos,
-    });
-    greenLeader.velocity.set(0, 0, +NIGHTMARE.abSpeed);
-    greenLeader.basis.forward.set(0, 0, 1);
-    greenLeader.basis.right.set(1, 0, 0);
-    greenLeader.basis.up.set(0, 1, 0);
-
-    const redLeader = new Ship({
-      team: "red",
-      isLeader: true,
-      position: redLeaderPos,
-    });
-    redLeader.velocity.set(0, 0, -NIGHTMARE.abSpeed);
-    redLeader.basis.forward.set(0, 0, -1);
-    redLeader.basis.right.set(-1, 0, 0);
-    redLeader.basis.up.set(0, 1, 0);
-
-    this.leaders.green = greenLeader;
-    this.leaders.red = redLeader;
-    this.ships.push(greenLeader, redLeader);
-
-    // Per-fleet team size, clamped to >= 1 so we always have a leader.
-    const greenSize = Math.max(1, Math.floor(FLEET_CONFIG.green.teamSize));
-    const redSize = Math.max(1, Math.floor(FLEET_CONFIG.red.teamSize));
-
-    const blob = {
-      x: SIM.formationBlobX,
-      y: SIM.formationBlobY,
-      z: SIM.formationBlobZ,
-    };
-
-    // Build a separate formation per team so each side gets its own
-    // properly-sized blob (and so changing one team's size doesn't waste
-    // slot-packing effort for the other team).
-    const greenSlots = buildFormationSlots(greenSize, SIM.formationMinSpacing, blob);
-    const redSlots = buildFormationSlots(redSize, SIM.formationMinSpacing, blob);
-
-    // Helper: given the leader's basis, compute the world position of a slot
-    // and spawn a follower there with the leader's initial velocity.
-    const spawnFollowers = (leader, slots, count) => {
-      for (let i = 0; i < count; i++) {
-        const slot = slots[i];
-        const worldOff = new THREE.Vector3()
-          .addScaledVector(leader.basis.right, slot.x)
-          .addScaledVector(leader.basis.up, slot.y)
-          .addScaledVector(leader.basis.forward, slot.z);
-        const pos = leader.position.clone().add(worldOff);
-        const f = new Ship({
-          team: leader.team,
-          isLeader: false,
-          position: pos,
-          slotOffset: slot,
-        });
-        f.velocity.copy(leader.velocity);
-        this.ships.push(f);
-      }
-    };
-
-    spawnFollowers(greenLeader, greenSlots, greenSize - 1);
-    spawnFollowers(redLeader, redSlots, redSize - 1);
+  // Distribute totalSize across n bins as evenly as possible. The first
+  // (totalSize % n) bins get one extra ship. Returns an array of bin sizes
+  // summing to totalSize (each >= 1 since we clamp n <= totalSize upstream).
+  _splitTeamSize(totalSize, n) {
+    const base = Math.floor(totalSize / n);
+    const extra = totalSize - base * n;
+    const sizes = new Array(n);
+    for (let i = 0; i < n; i++) sizes[i] = base + (i < extra ? 1 : 0);
+    return sizes;
   }
 
-  // If a leader dies, promote the surviving teammate closest to the old
-  // leader's position (or just the first alive one) so followers have a
-  // reference. We zero its slotOffset and recompute followers' offsets
-  // relative to the new leader's CURRENT position so they don't all suddenly
-  // teleport-target the same point.
-  _maybePromoteLeader(team) {
-    const leader = this.leaders[team];
+  _spawn() {
+    // Place green team at -startSeparation/2 along x; red team at +.
+    // Each team is split into N subfleets stacked along the Y axis so the
+    // formation blobs (formationBlobY half-height) don't overlap and the
+    // user can see them as visually distinct groups from frame 1. Each
+    // subfleet gets its own initial velocity along Z (opposite signs per
+    // team), its own formation slots, and its own leader.
+    const halfSep = SIM.startSeparation / 2;
+
+    for (const team of ["green", "red"]) {
+      const cfg = FLEET_CONFIG[team];
+      const teamSize = Math.max(1, Math.floor(cfg.teamSize));
+      // Clamp subfleet count to teamSize (can't have more subfleets than
+      // ships -- empty subfleets aren't useful and break the leader invariant).
+      const requested = Math.max(1, Math.floor(cfg.subfleetCount));
+      const n = Math.min(requested, teamSize);
+
+      const sizes = this._splitTeamSize(teamSize, n);
+      const baseX = team === "green" ? -halfSep : +halfSep;
+      const vz = team === "green" ? +NIGHTMARE.abSpeed : -NIGHTMARE.abSpeed;
+      const basisFwdZ = team === "green" ? 1 : -1;
+      const basisRightX = team === "green" ? 1 : -1;
+
+      const blob = {
+        x: SIM.formationBlobX,
+        y: SIM.formationBlobY,
+        z: SIM.formationBlobZ,
+      };
+
+      for (let i = 0; i < n; i++) {
+        const subfleetSize = sizes[i];
+        // Center subfleets symmetrically around y=0.
+        const yOffset = (i - (n - 1) / 2) * SIM.subfleetVerticalSpacing;
+
+        const leaderPos = new THREE.Vector3(baseX, yOffset, 0);
+        const leader = new Ship({
+          team,
+          isLeader: true,
+          position: leaderPos,
+          subfleetId: i,
+        });
+        leader.velocity.set(0, 0, vz);
+        leader.basis.forward.set(0, 0, basisFwdZ);
+        leader.basis.right.set(basisRightX, 0, 0);
+        leader.basis.up.set(0, 1, 0);
+
+        this.ships.push(leader);
+        this.subfleets[team].push({ id: i, leader, primary: null });
+
+        // Spawn followers around this subfleet's leader.
+        const slots = buildFormationSlots(
+          subfleetSize,
+          SIM.formationMinSpacing,
+          blob
+        );
+        for (let f = 0; f < subfleetSize - 1; f++) {
+          const slot = slots[f];
+          const worldOff = new THREE.Vector3()
+            .addScaledVector(leader.basis.right, slot.x)
+            .addScaledVector(leader.basis.up, slot.y)
+            .addScaledVector(leader.basis.forward, slot.z);
+          const pos = leader.position.clone().add(worldOff);
+          const follower = new Ship({
+            team,
+            isLeader: false,
+            position: pos,
+            slotOffset: slot,
+            subfleetId: i,
+          });
+          follower.velocity.copy(leader.velocity);
+          this.ships.push(follower);
+        }
+      }
+    }
+  }
+
+  // If a subfleet's leader dies, promote the surviving subfleet member
+  // closest to the old leader's position (or just the first alive one) so
+  // followers have a reference. We zero its slotOffset and recompute
+  // followers' offsets relative to the new leader's CURRENT position so
+  // they don't all suddenly teleport-target the same point. If the entire
+  // subfleet is wiped out, leader becomes null and the subfleet is inert
+  // until the battle ends. Promotion is scoped to (team, subfleetId) so
+  // a candidate from a different subfleet can never absorb this one.
+  _maybePromoteLeader(team, subfleetId) {
+    const sub = this.subfleets[team][subfleetId];
+    const leader = sub.leader;
     if (leader && leader.alive) return;
 
     let candidate = null;
     let bestDistSq = Infinity;
     const ref = leader ? leader.position : null;
     for (const s of this.ships) {
-      if (!s.alive || s.team !== team || s.isLeader) continue;
+      if (!s.alive) continue;
+      if (s.team !== team || s.subfleetId !== subfleetId) continue;
+      if (s.isLeader) continue;
       const d = ref ? s.position.distanceToSquared(ref) : 0;
       if (d < bestDistSq) {
         bestDistSq = d;
@@ -117,7 +140,8 @@ export class Battle {
       }
     }
     if (!candidate) {
-      this.leaders[team] = null;
+      sub.leader = null;
+      sub.primary = null;
       return;
     }
     candidate.isLeader = true;
@@ -138,11 +162,14 @@ export class Battle {
       .cross(candidate.basis.forward)
       .normalize();
 
-    // Re-anchor surviving followers' slot offsets to be their current
-    // position relative to the new leader's basis. This avoids a sudden
-    // "everyone scrambles to a new spot" jolt when the leader changes.
+    // Re-anchor surviving subfleet members' slot offsets to be their
+    // current position relative to the new leader's basis. This avoids
+    // a sudden "everyone scrambles to a new spot" jolt when the leader
+    // changes.
     for (const s of this.ships) {
-      if (!s.alive || s.team !== team || s === candidate) continue;
+      if (!s.alive) continue;
+      if (s.team !== team || s.subfleetId !== subfleetId) continue;
+      if (s === candidate) continue;
       const rel = s.position.clone().sub(candidate.position);
       s.slotOffset = new THREE.Vector3(
         rel.dot(candidate.basis.right),
@@ -150,24 +177,27 @@ export class Battle {
         rel.dot(candidate.basis.forward)
       );
     }
-    this.leaders[team] = candidate;
+    sub.leader = candidate;
   }
 
-  // The "leader's call": nearest enemy ship to our team's leader. If our
-  // leader is dead (mid-promotion), fall back to the first surviving teammate
-  // as the reference point. Returns null if no enemies remain.
-  _pickPrimary(team) {
+  // The subfleet leader's call: nearest enemy ship (across ALL enemy
+  // subfleets) to this subfleet's leader. If our subfleet leader is gone
+  // mid-promotion, fall back to the first surviving subfleet member as
+  // the reference point. Returns null if the subfleet is extinct or no
+  // enemies remain.
+  _pickPrimary(team, subfleetId) {
     const enemyTeam = team === "green" ? "red" : "green";
-    const leader = this.leaders[team];
+    const sub = this.subfleets[team][subfleetId];
+    const leader = sub.leader;
     let ref = null;
     if (leader && leader.alive) {
       ref = leader.position;
     } else {
       for (const s of this.ships) {
-        if (s.alive && s.team === team) {
-          ref = s.position;
-          break;
-        }
+        if (!s.alive) continue;
+        if (s.team !== team || s.subfleetId !== subfleetId) continue;
+        ref = s.position;
+        break;
       }
     }
     if (!ref) return null;
@@ -187,9 +217,11 @@ export class Battle {
 
   _updatePrimaries() {
     for (const team of ["green", "red"]) {
-      const cur = this.primary[team];
-      if (!cur || !cur.alive) {
-        this.primary[team] = this._pickPrimary(team);
+      for (const sub of this.subfleets[team]) {
+        const cur = sub.primary;
+        if (!cur || !cur.alive) {
+          sub.primary = this._pickPrimary(team, sub.id);
+        }
       }
     }
   }
@@ -201,7 +233,8 @@ export class Battle {
   _updateLocks(dt) {
     for (const s of this.ships) {
       if (!s.alive) continue;
-      const primary = this.primary[s.team];
+      const sub = this.subfleets[s.team][s.subfleetId];
+      const primary = sub ? sub.primary : null;
 
       if (!primary || !primary.alive) {
         s.lockState = "idle";
@@ -300,8 +333,14 @@ export class Battle {
     }
 
     // Promotion + primary call + per-ship lock progression + AI steering.
-    this._maybePromoteLeader("green");
-    this._maybePromoteLeader("red");
+    // Promote leaders for every subfleet on both sides; iterating directly
+    // over the subfleets array keeps the call count bounded by N (typically
+    // 1-6 per team) regardless of fleet size.
+    for (const team of ["green", "red"]) {
+      for (const sub of this.subfleets[team]) {
+        this._maybePromoteLeader(team, sub.id);
+      }
+    }
     this._updatePrimaries();
     this._updateLocks(dt);
     this._updateHardeners();

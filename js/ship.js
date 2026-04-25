@@ -21,10 +21,20 @@ function sampleNormal(mean, sigma) {
 
 // Per-ship state. Pure data + small combat methods; AI lives in ai.js.
 export class Ship {
-  constructor({ team, isLeader = false, position, slotOffset = null }) {
+  constructor({
+    team,
+    isLeader = false,
+    position,
+    slotOffset = null,
+    subfleetId = 0,
+  }) {
     this.id = nextShipId++;
     this.team = team; // "green" | "red"
     this.isLeader = isLeader;
+    // Index into Battle.subfleets[team]. All members of a subfleet -- leader
+    // and followers -- share this id. Stable across promotion (a follower
+    // promoted to leader keeps its subfleet).
+    this.subfleetId = subfleetId;
 
     this.position = position.clone();
     this.velocity = new THREE.Vector3();

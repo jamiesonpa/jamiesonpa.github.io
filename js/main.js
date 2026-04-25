@@ -21,12 +21,24 @@ function rebuildRoster(b) {
   redRosterList.innerHTML = "";
   rosterRows.clear();
 
-  let gIdx = 0;
-  let rIdx = 0;
+  // Per-(team, subfleet) sequential numbering so labels look like
+  //   G1·01 G1·02 ... G2·01 G2·02
+  // when subfleets > 1, falling back to G·01 / G·02 for a single subfleet.
+  // The leader of each subfleet is naturally "01" because we spawn it first.
+  const counters = { green: new Map(), red: new Map() };
+  const subfleetCounts = {
+    green: b.subfleets.green.length,
+    red: b.subfleets.red.length,
+  };
   for (const s of b.ships) {
     const isGreen = s.team === "green";
-    const idx = isGreen ? ++gIdx : ++rIdx;
-    const label = (isGreen ? "G" : "R") + String(idx).padStart(2, "0");
+    const teamCounters = counters[s.team];
+    const next = (teamCounters.get(s.subfleetId) || 0) + 1;
+    teamCounters.set(s.subfleetId, next);
+    const teamPrefix = isGreen ? "G" : "R";
+    const subPart =
+      subfleetCounts[s.team] > 1 ? String(s.subfleetId + 1) : "";
+    const label = teamPrefix + subPart + "\u00b7" + String(next).padStart(2, "0");
 
     const row = document.createElement("div");
     row.className = "ship-row";
@@ -73,9 +85,16 @@ function updateRoster(b, nowMs) {
   if (nowMs - lastRosterUpdate < 100) return;
   lastRosterUpdate = nowMs;
 
+  // A ship is "primary" in the roster if any opposing subfleet currently
+  // has it as its primary call. With subfleets > 1 multiple ships per
+  // team can be primary at once; the highlight just flags "someone is
+  // shooting me as primary".
   const primaryIds = new Set();
-  if (b.primary.green && b.primary.green.alive) primaryIds.add(b.primary.green.id);
-  if (b.primary.red && b.primary.red.alive) primaryIds.add(b.primary.red.id);
+  for (const team of ["green", "red"]) {
+    for (const sub of b.subfleets[team]) {
+      if (sub.primary && sub.primary.alive) primaryIds.add(sub.primary.id);
+    }
+  }
 
   for (const s of b.ships) {
     const r = rosterRows.get(s.id);
@@ -165,8 +184,10 @@ function updateViolins(b, nowMs) {
 //
 // Keys that must be parsed as integers and have a per-key minimum.
 // teamSize must be >= 1 so we always have at least the leader.
+// subfleetCount must be >= 1; sim.js further clamps it to <= teamSize.
 const INTEGER_KEYS = {
   teamSize: { min: 1 },
+  subfleetCount: { min: 1 },
 };
 
 function bindFleetConfigInputs() {

@@ -171,26 +171,28 @@ export class Renderer {
 
     this.shipMeshes = new Map(); // ship.id -> { mesh, ring? }
 
-    // Primary-target indicators: one persistent yellow torus per team's call.
-    // Positioned each frame at battle.primary[team].position; hidden if no
-    // primary or if it's dead.
+    // Primary-target indicators. Each subfleet calls its own primary, so we
+    // need up to (max subfleets per team) * 2 simultaneous rings. We pre-
+    // allocate a pool and assign them dynamically each frame in
+    // updatePrimaryIndicators(); unused rings are hidden. Kept as a single
+    // pool (not per-team) since the same enemy ship can be a primary call
+    // from multiple subfleets at once -- we just reuse one ring per unique
+    // primary ship.
     const primaryGeom = new THREE.TorusGeometry(VIS.pipRadius * 4, 60, 8, 36);
-    const mkPrimaryRing = () => {
-      const m = new THREE.Mesh(
-        primaryGeom,
-        new THREE.MeshBasicMaterial({
-          color: 0xffd000,
-          transparent: true,
-          opacity: 0.9,
-        })
-      );
+    const primaryMat = new THREE.MeshBasicMaterial({
+      color: 0xffd000,
+      transparent: true,
+      opacity: 0.9,
+    });
+    this.primaryRingPool = [];
+    const POOL_SIZE = 16; // up to 8 per team -- well above the 6-subfleet cap
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const m = new THREE.Mesh(primaryGeom, primaryMat);
       m.rotation.x = Math.PI / 2; // lie flat (horizontal halo)
       m.visible = false;
-      return m;
-    };
-    this.primaryRings = { green: mkPrimaryRing(), red: mkPrimaryRing() };
-    this.scene.add(this.primaryRings.green);
-    this.scene.add(this.primaryRings.red);
+      this.scene.add(m);
+      this.primaryRingPool.push(m);
+    }
 
     this.beams = new BeamPool(this.scene);
 
@@ -330,18 +332,27 @@ export class Renderer {
     this._lastEventT = battle.simTime;
   }
 
-  // Position the per-team primary-target rings at the current primary's
-  // location each frame; hide if no live primary.
+  // Position one primary-target ring at each unique live primary ship
+  // across all subfleets on both teams. Two subfleets calling the same
+  // ship share a single ring (deduped via a Set). Unused pool entries are
+  // hidden.
   updatePrimaryIndicators(battle) {
+    const seen = new Set();
+    let used = 0;
     for (const team of ["green", "red"]) {
-      const primary = battle.primary[team];
-      const ring = this.primaryRings[team];
-      if (primary && primary.alive) {
-        ring.position.copy(primary.position);
+      for (const sub of battle.subfleets[team]) {
+        const p = sub.primary;
+        if (!p || !p.alive) continue;
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        if (used >= this.primaryRingPool.length) break;
+        const ring = this.primaryRingPool[used++];
+        ring.position.copy(p.position);
         ring.visible = true;
-      } else {
-        ring.visible = false;
       }
+    }
+    for (let i = used; i < this.primaryRingPool.length; i++) {
+      this.primaryRingPool[i].visible = false;
     }
   }
 
@@ -362,7 +373,6 @@ export class Renderer {
     this.shipMeshes.clear();
     this.beams.clear();
     this._lastEventT = -1;
-    this.primaryRings.green.visible = false;
-    this.primaryRings.red.visible = false;
+    for (const ring of this.primaryRingPool) ring.visible = false;
   }
 }
