@@ -1,0 +1,11 @@
+crystal_type    optimal (km) falloff (km)   em_damage   thermal_damage  tracking_speed (mrad/s)
+aurora  142 35.2    20  12  3.48
+radio   126 35.2    23  0   13.92
+microwave   110 35.2    18.4    9.2 13.92
+infrared    94.7    35.2    23  9.2 13.92
+standard    78.9    35.2    23  13.8    13.92
+ultraviolet 69  35.2    27.6    13.8    13.92
+xray    59.2    35.2    27.6    18.4    13.92
+gamma   49.3    35.2    32.2    18.4    13.92
+multifrequency  39.5    35.5    32.2    23  13.92
+gleam   19.7    35.2    28  28  17.40

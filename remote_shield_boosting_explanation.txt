@@ -1,0 +1,102 @@
+At a mechanical level, EVE Online remote shield boosting is not a unique system—it reuses three core subsystems:
+
+module “repair per cycle”
+optimal + falloff attenuation (same math family as turrets/EWAR)
+resist scaling on the target
+
+Below is the full stack in code-like form.
+
+1) Base remote shield boost (per module)
+
+Each remote shield booster has:
+
+rep_amount (HP per cycle)
+cycle_time (s)
+cap_cost (GJ)
+optimal_range (m)
+falloff_range (m)
+
+Raw HPS:
+
+HPS_raw = rep_amount / cycle_time
+
+Cap efficiency:
+
+HP_per_GJ = rep_amount / cap_cost
+2) Range attenuation (critical for Scimitar)
+
+Remote reps follow the optimal + falloff curve, not a hard cutoff.
+
+Let:
+
+d = distance to target
+opt = optimal_range
+fall = falloff_range
+
+Then effectiveness multiplier:
+
+if d <= opt:
+    range_mult = 1.0
+else:
+    x = (d - opt) / fall
+    range_mult = 0.5^(x^2)
+
+Key anchor points:
+
+d = opt → 100%
+d = opt + fall → ~50%
+d = opt + 2*fall → ~6%
+
+This is identical functional form to turret hit chance decay.
+
+Reddit consensus summaries align with this behavior (full rep at optimal, decays through falloff)
+
+
+This is the defining constraint for sustainable rep chains.
+
+CPU (fit constraint, not math)
+-50% CPU need (role bonus)
+4) Final applied repair (before resists)
+rep_effective = rep_amount * range_mult
+Then:
+
+HPS_effective = rep_effective / cycle_time
+5) Resist amplification (this is where logi scales hard)
+
+Incoming reps are amplified by target resistances.
+
+For a damage profile vector D = [EM, TH, KI, EX] and resist vector R = [r_em, r_th, r_ki, r_ex]:
+
+effective_damage_fraction =
+    D_em*(1 - r_em) +
+    D_th*(1 - r_th) +
+    D_ki*(1 - r_ki) +
+    D_ex*(1 - r_ex)
+
+resist_multiplier = 1 / effective_damage_fraction
+
+Final “EHP repaired per second”:
+
+EHP/s = HPS_effective * resist_multiplier
+
+Interpretation:
+
+0% resist → multiplier = 1
+50% uniform resist → multiplier = 2
+75% → multiplier = 4
+
+This is why logi scales superlinearly with resist fits.
+
+6) Full pipeline (compact form)
+opt = opt_base * (1 + 0.60 * cruiser_level)
+fall = fall_base * (1 + 0.60 * cruiser_level)
+
+if d <= opt:
+    range_mult = 1
+else:
+    range_mult = 0.5^(((d - opt)/fall)^2)
+
+HPS = (rep_amount * range_mult) / cycle_time
+
+EHP_per_second = HPS * resist_multiplier
+

@@ -1,0 +1,33 @@
+distance_to_target = distance to target
+remote_shield_booster_optimal = optimal_range = 27km
+remote_shield_booster_falloff = falloff_range = 40.5km
+remote_shield_booster_rep_amount = 334 hp
+remote_shield_booster_cycle_time = 7.2 s
+remote_shield_booster_quantity = 4 
+
+scimitar_shield_hp = 2020
+scimitar_shield_em_resist = 78.1%
+scimitar_shield_thermal_resist = 65%
+scimitar_shield_kinetic_resist = 47.5%
+scimitar_shield_explosive_resist = 56.2%
+scimitar_shield_em_resist_hardeners_on = 89.4%
+scimitar_shield_thermal_resist_hardeners_on = 83%
+scimitar_shield_kinetic_resist_hardeners_on = 74.6%
+scimitar_shield_explosive_resist_hardeners_on = 78.8%
+scimitar_shield_em_resist_hardeners_heated = 91.5%
+scimitar_shield_thermal_resist_hardeners_heated = 85.9%
+scimitar_shield_kinetic_resist_hardeners_heated = 78.8%
+scimitar_shield_explosive_resist_hardeners_heated = 82.4%
+scimitar_armor_hp = 2100
+scimitar_armor_em_resist = 91.5%
+scimitar_armor_thermal_resist = 72.4%
+scimitar_armor_kinetic_resist = 36.3%
+scimitar_armor_explosive_resist = 23.5%
+scimitar_structure_hp = 1790k
+scimitar_structure_em_resist = 60%
+scimitar_structure_thermal_resist = 60%
+scimitar_structure_kinetic_resist = 60%
+scimitar_structure_explosive_resist = 60%
+scimitar_signature_radius = 65 m2
+scimitar_base_speed = 316 m/s
+scimitar_afterburner_speed = 1701 m/s

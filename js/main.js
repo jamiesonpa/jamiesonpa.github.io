@@ -1,4 +1,10 @@
-import { SIM, NIGHTMARE, FLEET_CONFIG, VIS } from "./constants.js";
+import {
+  SIM,
+  SHIP_STATS,
+  FLEET_CONFIG,
+  VIS,
+  CRYSTALS,
+} from "./constants.js";
 import { Battle } from "./sim.js";
 import { Renderer } from "./render.js";
 import { ViolinPlot } from "./violin.js";
@@ -14,17 +20,18 @@ renderer.syncShips(battle);
 // fill-bar elements by ship id for cheap per-frame width updates.
 const greenRosterList = document.querySelector("#green-roster .roster-list");
 const redRosterList = document.querySelector("#red-roster .roster-list");
-const rosterRows = new Map(); // shipId -> { row, sFill, aFill, hFill }
+const rosterRows = new Map(); // shipId -> { row, sFill, aFill, hFill, crystalEl?, lastCrystalIdx? }
 
 function rebuildRoster(b) {
   greenRosterList.innerHTML = "";
   redRosterList.innerHTML = "";
   rosterRows.clear();
 
-  // Per-(team, subfleet) sequential numbering so labels look like
-  //   G1·01 G1·02 ... G2·01 G2·02
-  // when subfleets > 1, falling back to G·01 / G·02 for a single subfleet.
-  // The leader of each subfleet is naturally "01" because we spawn it first.
+  // Per-(team, subfleet, type) sequential numbering so labels look like
+  //   G1·N01 G1·N02 ... G1·S01 G1·S02
+  // when subfleets > 1, falling back to G·N01 / G·S01 for a single
+  // subfleet. The leader of each subfleet is naturally "01" of its type
+  // because we spawn it first.
   const counters = { green: new Map(), red: new Map() };
   const subfleetCounts = {
     green: b.subfleets.green.length,
@@ -33,16 +40,26 @@ function rebuildRoster(b) {
   for (const s of b.ships) {
     const isGreen = s.team === "green";
     const teamCounters = counters[s.team];
-    const next = (teamCounters.get(s.subfleetId) || 0) + 1;
-    teamCounters.set(s.subfleetId, next);
+    // Counter key is (subfleetId, shipType) so nightmare and scimitar
+    // numbering inside the same subfleet doesn't collide.
+    const ckey = s.subfleetId + ":" + s.shipType;
+    const next = (teamCounters.get(ckey) || 0) + 1;
+    teamCounters.set(ckey, next);
     const teamPrefix = isGreen ? "G" : "R";
     const subPart =
       subfleetCounts[s.team] > 1 ? String(s.subfleetId + 1) : "";
-    const label = teamPrefix + subPart + "\u00b7" + String(next).padStart(2, "0");
+    const typePart = s.shipType === "scimitar" ? "S" : "N";
+    const label =
+      teamPrefix +
+      subPart +
+      "\u00b7" +
+      typePart +
+      String(next).padStart(2, "0");
 
     const row = document.createElement("div");
     row.className = "ship-row";
     if (s.isLeader) row.classList.add("leader");
+    if (s.shipType === "scimitar") row.classList.add("scimitar");
 
     const labelEl = document.createElement("div");
     labelEl.className = "ship-label";
@@ -57,6 +74,20 @@ function rebuildRoster(b) {
     hardEl.textContent = "H";
     hardEl.title = "Shield hardeners";
     row.appendChild(hardEl);
+
+    // Crystal pip (nightmares only). Shows the 2-letter abbreviation of the
+    // currently-loaded frequency crystal (e.g. "MF", "GM", "XR"). The
+    // .pending class is applied while a swap is queued (pilot has noticed
+    // they need to swap but the reaction time hasn't elapsed yet) so the
+    // user can see the crystal-swap state machine in action.
+    let crystalEl = null;
+    if (s.shipType === "nightmare") {
+      crystalEl = document.createElement("span");
+      crystalEl.className = "crystal-pip";
+      crystalEl.textContent = CRYSTALS[s.crystalIdx].abbr;
+      crystalEl.title = "Loaded crystal: " + CRYSTALS[s.crystalIdx].name;
+      row.appendChild(crystalEl);
+    }
 
     const bars = document.createElement("div");
     bars.className = "bars";
@@ -75,7 +106,15 @@ function rebuildRoster(b) {
     row.appendChild(bars);
 
     (isGreen ? greenRosterList : redRosterList).appendChild(row);
-    rosterRows.set(s.id, { row, sFill, aFill, hFill });
+    rosterRows.set(s.id, {
+      row,
+      sFill,
+      aFill,
+      hFill,
+      crystalEl,
+      lastCrystalIdx: s.crystalIdx,
+      lastPendingIdx: null,
+    });
   }
 }
 
@@ -99,9 +138,13 @@ function updateRoster(b, nowMs) {
   for (const s of b.ships) {
     const r = rosterRows.get(s.id);
     if (!r) continue;
-    const sPct = (Math.max(0, s.shield) / NIGHTMARE.shieldHP) * 100;
-    const aPct = (Math.max(0, s.armor) / NIGHTMARE.armorHP) * 100;
-    const hPct = (Math.max(0, s.structure) / NIGHTMARE.structureHP) * 100;
+    // Bars are normalised by THIS ship type's max HP, so a fully-shielded
+    // scimitar reads 100% on the same bar a fully-shielded nightmare reads
+    // 100%, even though their absolute HP totals are very different.
+    const stats = SHIP_STATS[s.shipType];
+    const sPct = (Math.max(0, s.shield) / stats.shieldHP) * 100;
+    const aPct = (Math.max(0, s.armor) / stats.armorHP) * 100;
+    const hPct = (Math.max(0, s.structure) / stats.structureHP) * 100;
     r.sFill.style.width = sPct + "%";
     r.aFill.style.width = aPct + "%";
     r.hFill.style.width = hPct + "%";
@@ -115,6 +158,35 @@ function updateRoster(b, nowMs) {
     r.row.classList.toggle("overheated", !!s.hardenersOverheated);
     // Promotion: a follower may have been promoted to leader mid-battle.
     if (s.isLeader) r.row.classList.add("leader");
+
+    // Crystal pip (nightmares only). Skip the DOM writes when neither the
+    // loaded crystal nor the pending-swap target has changed since the
+    // last roster refresh -- in steady state every nightmare is reading
+    // the same value tick after tick, and even at 10 Hz roster updates
+    // the textContent / title / className writes add up across 100+ rows.
+    if (r.crystalEl) {
+      if (r.lastCrystalIdx !== s.crystalIdx) {
+        const c = CRYSTALS[s.crystalIdx];
+        r.crystalEl.textContent = c.abbr;
+        r.crystalEl.title = "Loaded crystal: " + c.name;
+        r.lastCrystalIdx = s.crystalIdx;
+      }
+      const pending = s.pendingCrystalIdx;
+      if (r.lastPendingIdx !== pending) {
+        if (pending !== null && pending !== s.crystalIdx) {
+          r.crystalEl.classList.add("pending");
+          r.crystalEl.title =
+            "Loaded: " +
+            CRYSTALS[s.crystalIdx].name +
+            " -> swapping to " +
+            CRYSTALS[pending].name;
+        } else {
+          r.crystalEl.classList.remove("pending");
+          r.crystalEl.title = "Loaded crystal: " + CRYSTALS[s.crystalIdx].name;
+        }
+        r.lastPendingIdx = pending;
+      }
+    }
   }
 }
 
@@ -135,15 +207,18 @@ const redViolin = new ViolinPlot(document.getElementById("red-violin"), {
 
 function rebuildViolins(b) {
   // Use whichever is larger of (config-derived 4-sigma upper) and the
-  // observed max across all spawned ships, so the y-axis comfortably
-  // contains the actual roll outcomes even on lucky tails. Stable across
-  // the whole battle (no shrinking as ships die).
+  // observed max across all spawned NIGHTMARES, so the y-axis comfortably
+  // contains the actual roll outcomes even on lucky tails. Scimitars are
+  // excluded entirely -- they don't fire turrets, so their damageModifier
+  // is always 0 and would just stack a column of dots at the bottom of
+  // the plot, muddying the nightmare distribution.
   const cfgMax = Math.max(
     FLEET_CONFIG.green.damageMean + 4 * FLEET_CONFIG.green.damageSigma,
     FLEET_CONFIG.red.damageMean + 4 * FLEET_CONFIG.red.damageSigma
   );
   let observedMax = 0;
   for (const s of b.ships) {
+    if (s.shipType !== "nightmare") continue;
     if (s.damageModifier > observedMax) observedMax = s.damageModifier;
   }
   const yMax = Math.max(0.5, cfgMax, observedMax) * 1.05;
@@ -153,6 +228,7 @@ function rebuildViolins(b) {
   const greenShips = [];
   const redShips = [];
   for (const s of b.ships) {
+    if (s.shipType !== "nightmare") continue;
     (s.team === "green" ? greenShips : redShips).push(s);
   }
   greenViolin.rebuild(greenShips);
@@ -170,6 +246,7 @@ function updateViolins(b, nowMs) {
   const redAlive = [];
   for (const s of b.ships) {
     if (!s.alive) continue;
+    if (s.shipType !== "nightmare") continue;
     (s.team === "green" ? greenAlive : redAlive).push(s);
   }
   greenViolin.update(greenAlive);
@@ -179,14 +256,17 @@ function updateViolins(b, nowMs) {
 // --- Per-fleet config inputs ---------------------------------------------
 // Two-way bind .cfg-input fields to FLEET_CONFIG. Edits take effect on the
 // next reaction roll a ship makes (i.e., when a new primary is called),
-// EXCEPT for spawn-time keys (teamSize, damageMean, damageSigma) which
-// only take effect on Restart.
+// EXCEPT for spawn-time keys (nightmareCount, scimitarCount, subfleetCount,
+// damageMean, damageSigma) which only take effect on Restart.
 //
 // Keys that must be parsed as integers and have a per-key minimum.
-// teamSize must be >= 1 so we always have at least the leader.
-// subfleetCount must be >= 1; sim.js further clamps it to <= teamSize.
+// nightmareCount and scimitarCount may both be 0 (a pure-logi fleet won't
+// shoot, an all-zero fleet just dies instantly -- both are valid sandbox
+// scenarios). subfleetCount must be >= 1; sim.js further clamps it to
+// <= total ship count.
 const INTEGER_KEYS = {
-  teamSize: { min: 1 },
+  nightmareCount: { min: 0 },
+  scimitarCount: { min: 0 },
   subfleetCount: { min: 1 },
 };
 
@@ -253,6 +333,64 @@ function bindFleetConfigInputs() {
   }
 }
 bindFleetConfigInputs();
+
+// --- "Match green fleet" button ------------------------------------------
+// Copies every key from FLEET_CONFIG.green onto FLEET_CONFIG.red and then
+// re-syncs the red <input>s so the UI matches the new state. Equivalent to
+// the user manually retyping every red value to match green: live reaction
+// settings take effect on the next reaction roll a red ship makes, and
+// spawn-time settings (nightmareCount/scimitarCount/subfleetCount/damage*)
+// only take effect on the next Restart. Min/max coupling is preserved
+// trivially because the green source already satisfies min <= max.
+function applyMatchGreenToRed() {
+  const src = FLEET_CONFIG.green;
+  const dst = FLEET_CONFIG.red;
+  for (const k of Object.keys(src)) {
+    if (k in dst) dst[k] = src[k];
+  }
+  const inputs = document.querySelectorAll('.cfg-input[data-team="red"]');
+  for (const input of inputs) {
+    const key = input.dataset.key;
+    if (!(key in dst)) continue;
+    if (input.type === "checkbox") input.checked = !!dst[key];
+    else input.value = dst[key];
+  }
+}
+document
+  .getElementById("btn-match-green-to-red")
+  .addEventListener("click", applyMatchGreenToRed);
+
+// --- Collapsible-section state persistence -------------------------------
+// Each <details class="cfg-section"> has a unique id (e.g. cfg-green-fleet).
+// We persist its open/closed state in localStorage so the user's choice of
+// what to show/hide survives reloads. Wrapped in try/catch in case storage
+// is unavailable (private mode, quota errors); the UI still works fine
+// without persistence in that case.
+const COLLAPSE_STORAGE_PREFIX = "battlesim.cfgOpen.";
+function bindCollapsibleSections() {
+  const sections = document.querySelectorAll("details.cfg-section");
+  for (const det of sections) {
+    if (!det.id) continue;
+    try {
+      const stored = localStorage.getItem(COLLAPSE_STORAGE_PREFIX + det.id);
+      if (stored === "0") det.open = false;
+      else if (stored === "1") det.open = true;
+    } catch (_) {
+      // ignore: localStorage unavailable
+    }
+    det.addEventListener("toggle", () => {
+      try {
+        localStorage.setItem(
+          COLLAPSE_STORAGE_PREFIX + det.id,
+          det.open ? "1" : "0"
+        );
+      } catch (_) {
+        // ignore: localStorage unavailable
+      }
+    });
+  }
+}
+bindCollapsibleSections();
 
 // HUD elements -------------------------------------------------------------
 const greenCountEl = document.getElementById("green-count");

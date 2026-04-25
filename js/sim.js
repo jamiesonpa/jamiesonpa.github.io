@@ -1,18 +1,34 @@
 import * as THREE from "three";
-import { NIGHTMARE, SIM, FLEET_CONFIG } from "./constants.js";
+import {
+  NIGHTMARE,
+  SHIP_STATS,
+  REMOTE_REP,
+  SIM,
+  FLEET_CONFIG,
+  CRYSTALS,
+  pickIdealCrystalIdx,
+} from "./constants.js";
 import { Ship } from "./ship.js";
 import { updateAI, buildFormationSlots } from "./ai.js";
 
-const LOCK_TIME = 3.5; // seconds, per-ship lock-on
+const LOCK_TIME = 3.5; // seconds, per-ship lock-on (nightmare on enemy primary)
 
 export class Battle {
   constructor() {
     this.ships = [];
-    // Per-team list of subfleets. Each entry is { id, leader, primary }:
-    //   id      : index in the array; matches Ship.subfleetId for members
-    //   leader  : Ship currently leading this subfleet (null if extinct)
-    //   primary : Ship the subfleet's leader is calling as primary target
-    //             (null if no live enemies / leader gone)
+    // Per-team list of subfleets. Each entry is:
+    //   { id, leader, primary, primaryStartTime, primarySwapAt }
+    //     id                : index in the array; matches Ship.subfleetId
+    //     leader            : Ship currently leading this subfleet (null if
+    //                         extinct)
+    //     primary           : Ship the subfleet is calling as primary target
+    //                         (null if no live enemies / leader gone)
+    //     primaryStartTime  : simTime at which `primary` was last assigned;
+    //                         null when there is no primary
+    //     primarySwapAt     : simTime at which the subfleet will force-drop
+    //                         its current primary if it's still alive (i.e.
+    //                         the "target-switch reaction" has expired);
+    //                         null when there is no primary
     // Entries are never removed mid-battle so subfleetId stays a stable
     // index. A wiped-out subfleet keeps its slot with leader/primary = null.
     this.subfleets = { green: [], red: [] };
@@ -20,7 +36,10 @@ export class Battle {
     this.over = false;
     this.winner = null;
     // Hit events queued each tick for the renderer to consume:
-    //   { fromId, toId, hit, t } where t is the simTime the event was emitted.
+    //   { kind, fromId, toId, hit?, amount?, t }
+    //     kind: "fire" - turret laser shot; carries `hit` (bool)
+    //     kind: "rep"  - scimitar rep cycle; carries `amount` (HP applied)
+    //   t is the simTime the event was emitted.
     this.hitEvents = [];
 
     this._spawn();
@@ -28,8 +47,10 @@ export class Battle {
 
   // Distribute totalSize across n bins as evenly as possible. The first
   // (totalSize % n) bins get one extra ship. Returns an array of bin sizes
-  // summing to totalSize (each >= 1 since we clamp n <= totalSize upstream).
+  // summing to totalSize. May contain zeros if totalSize < n (caller is
+  // responsible for handling empty-bin semantics).
   _splitTeamSize(totalSize, n) {
+    if (n <= 0) return [];
     const base = Math.floor(totalSize / n);
     const extra = totalSize - base * n;
     const sizes = new Array(n);
@@ -41,20 +62,37 @@ export class Battle {
     // Place green team at -startSeparation/2 along x; red team at +.
     // Each team is split into N subfleets stacked along the Y axis so the
     // formation blobs (formationBlobY half-height) don't overlap and the
-    // user can see them as visually distinct groups from frame 1. Each
-    // subfleet gets its own initial velocity along Z (opposite signs per
-    // team), its own formation slots, and its own leader.
+    // user can see them as visually distinct groups from frame 1.
+    //
+    // Per-subfleet composition: nightmares are allocated first (so the
+    // leader slot of every subfleet is a nightmare whenever possible),
+    // then scimitars fill the remaining slots in the formation. If a
+    // subfleet ends up with 0 nightmares (e.g. nightmareCount < subfleetCount),
+    // the first scimitar in that subfleet becomes the leader -- it can
+    // still steer the formation, it just won't shoot.
     const halfSep = SIM.startSeparation / 2;
 
     for (const team of ["green", "red"]) {
       const cfg = FLEET_CONFIG[team];
-      const teamSize = Math.max(1, Math.floor(cfg.teamSize));
+      const nightmareCount = Math.max(0, Math.floor(cfg.nightmareCount));
+      const scimitarCount = Math.max(0, Math.floor(cfg.scimitarCount));
+      const teamSize = nightmareCount + scimitarCount;
+      // Empty fleet: skip spawn entirely. End-condition logic in tick()
+      // will treat this as the team being already wiped out.
+      if (teamSize <= 0) continue;
+
       // Clamp subfleet count to teamSize (can't have more subfleets than
       // ships -- empty subfleets aren't useful and break the leader invariant).
       const requested = Math.max(1, Math.floor(cfg.subfleetCount));
       const n = Math.min(requested, teamSize);
 
-      const sizes = this._splitTeamSize(teamSize, n);
+      // Distribute nightmares and scimitars independently so each subfleet
+      // gets a near-equal share of both types. This keeps the leader-is-
+      // nightmare invariant true on every subfleet whenever nightmareCount
+      // >= subfleetCount.
+      const nightmareSizes = this._splitTeamSize(nightmareCount, n);
+      const scimitarSizes = this._splitTeamSize(scimitarCount, n);
+
       const baseX = team === "green" ? -halfSep : +halfSep;
       const vz = team === "green" ? +NIGHTMARE.abSpeed : -NIGHTMARE.abSpeed;
       const basisFwdZ = team === "green" ? 1 : -1;
@@ -67,13 +105,19 @@ export class Battle {
       };
 
       for (let i = 0; i < n; i++) {
-        const subfleetSize = sizes[i];
+        const numN = nightmareSizes[i];
+        const numS = scimitarSizes[i];
+        const subfleetSize = numN + numS;
+        if (subfleetSize <= 0) continue;
         // Center subfleets symmetrically around y=0.
         const yOffset = (i - (n - 1) / 2) * SIM.subfleetVerticalSpacing;
 
+        // Leader type: nightmare if any in this subfleet, else scimitar.
+        const leaderType = numN > 0 ? "nightmare" : "scimitar";
         const leaderPos = new THREE.Vector3(baseX, yOffset, 0);
         const leader = new Ship({
           team,
+          shipType: leaderType,
           isLeader: true,
           position: leaderPos,
           subfleetId: i,
@@ -84,7 +128,26 @@ export class Battle {
         leader.basis.up.set(0, 1, 0);
 
         this.ships.push(leader);
-        this.subfleets[team].push({ id: i, leader, primary: null });
+        this.subfleets[team].push({
+          id: i,
+          leader,
+          primary: null,
+          primaryStartTime: null,
+          primarySwapAt: null,
+        });
+
+        // Build a flat list of remaining (non-leader) ship types for this
+        // subfleet, with nightmares first then scimitars. This keeps the
+        // per-subfleet roster numbering stable (N01, N02, ..., S01, S02).
+        const remainingTypes = [];
+        const nightmareFollowers = leaderType === "nightmare" ? numN - 1 : numN;
+        const scimitarFollowers = leaderType === "scimitar" ? numS - 1 : numS;
+        for (let f = 0; f < nightmareFollowers; f++) {
+          remainingTypes.push("nightmare");
+        }
+        for (let f = 0; f < scimitarFollowers; f++) {
+          remainingTypes.push("scimitar");
+        }
 
         // Spawn followers around this subfleet's leader.
         const slots = buildFormationSlots(
@@ -92,7 +155,7 @@ export class Battle {
           SIM.formationMinSpacing,
           blob
         );
-        for (let f = 0; f < subfleetSize - 1; f++) {
+        for (let f = 0; f < remainingTypes.length; f++) {
           const slot = slots[f];
           const worldOff = new THREE.Vector3()
             .addScaledVector(leader.basis.right, slot.x)
@@ -101,6 +164,7 @@ export class Battle {
           const pos = leader.position.clone().add(worldOff);
           const follower = new Ship({
             team,
+            shipType: remainingTypes[f],
             isLeader: false,
             position: pos,
             slotOffset: slot,
@@ -121,27 +185,44 @@ export class Battle {
   // subfleet is wiped out, leader becomes null and the subfleet is inert
   // until the battle ends. Promotion is scoped to (team, subfleetId) so
   // a candidate from a different subfleet can never absorb this one.
+  //
+  // Promotion preference: nightmares > scimitars for the same distance,
+  // because a nightmare leader can also contribute DPS. If only scimitars
+  // remain, we promote a scimitar -- the formation still flies, it just
+  // won't shoot.
   _maybePromoteLeader(team, subfleetId) {
     const sub = this.subfleets[team][subfleetId];
     const leader = sub.leader;
     if (leader && leader.alive) return;
 
-    let candidate = null;
-    let bestDistSq = Infinity;
+    let bestNightmare = null;
+    let bestNightmareDistSq = Infinity;
+    let bestScimitar = null;
+    let bestScimitarDistSq = Infinity;
     const ref = leader ? leader.position : null;
     for (const s of this.ships) {
       if (!s.alive) continue;
       if (s.team !== team || s.subfleetId !== subfleetId) continue;
       if (s.isLeader) continue;
       const d = ref ? s.position.distanceToSquared(ref) : 0;
-      if (d < bestDistSq) {
-        bestDistSq = d;
-        candidate = s;
+      if (s.shipType === "nightmare") {
+        if (d < bestNightmareDistSq) {
+          bestNightmareDistSq = d;
+          bestNightmare = s;
+        }
+      } else if (s.shipType === "scimitar") {
+        if (d < bestScimitarDistSq) {
+          bestScimitarDistSq = d;
+          bestScimitar = s;
+        }
       }
     }
+    const candidate = bestNightmare || bestScimitar;
     if (!candidate) {
       sub.leader = null;
       sub.primary = null;
+      sub.primaryStartTime = null;
+      sub.primarySwapAt = null;
       return;
     }
     candidate.isLeader = true;
@@ -180,18 +261,27 @@ export class Battle {
     sub.leader = candidate;
   }
 
-  // The subfleet leader's call: nearest enemy ship (across ALL enemy
+  // The subfleet leader's call: nearest enemy NIGHTMARE (across ALL enemy
   // subfleets) to this subfleet's leader. If our subfleet leader is gone
   // mid-promotion, fall back to the first surviving subfleet member as
   // the reference point. Returns null if the subfleet is extinct or no
-  // enemies remain.
+  // enemy nightmares remain.
+  //
+  // Per-user spec, nightmares NEVER shoot enemy scimitars -- only enemy
+  // nightmares are valid primary targets. Scimitars are therefore
+  // effectively invulnerable (they're never locked, never activate
+  // hardeners, never broadcast for reps), and the end-condition in
+  // tick() looks at surviving nightmares rather than total ship count
+  // so a side that runs out of nightmares loses immediately even if its
+  // logistics wing is still alive (it has no offensive capability left).
   //
   // `takenIds` (optional Set of ship ids) lets the caller exclude enemies
   // already chosen as primary by sibling subfleets on the same team, so
   // sibling subfleets fan their fire across distinct targets instead of
-  // dogpiling the same ship. If every reachable enemy is taken (e.g.,
-  // more subfleets than enemies remain), we fall back to the nearest
-  // taken enemy so the subfleet still has SOMETHING to shoot.
+  // dogpiling the same ship. If every reachable enemy nightmare is taken
+  // (e.g., more subfleets than enemy nightmares remain), we fall back to
+  // the nearest taken enemy nightmare so the subfleet still has SOMETHING
+  // to shoot.
   _pickPrimary(team, subfleetId, takenIds = null) {
     const enemyTeam = team === "green" ? "red" : "green";
     const sub = this.subfleets[team][subfleetId];
@@ -215,6 +305,10 @@ export class Battle {
     let fallbackBestD = Infinity;
     for (const o of this.ships) {
       if (!o.alive || o.team !== enemyTeam) continue;
+      // Nightmares-only target filter. Scimitars are ignored entirely
+      // here so they never get called as primary, never get locked, and
+      // never take damage from turret fire.
+      if (o.shipType !== "nightmare") continue;
       const d = ref.distanceToSquared(o.position);
       if (takenIds && takenIds.has(o.id)) {
         if (d < fallbackBestD) {
@@ -239,28 +333,85 @@ export class Battle {
   // primary then pick one that's NOT already claimed by a sibling
   // subfleet, with a fallback to "any nearest enemy" if every enemy is
   // already claimed (more subfleets than surviving enemies).
+  //
+  // Target-switch reaction: each subfleet also rolls a "time on target"
+  // deadline (primarySwapAt) when it commits to a primary. If that deadline
+  // arrives while the primary is still alive, the subfleet drops it and
+  // re-picks excluding the just-dropped enemy id. This models a fleet
+  // noticing that a target isn't dying (typically because enemy Scimitars
+  // are repping it) and switching to a softer target. If the only available
+  // candidate is the just-dropped enemy itself (i.e., no real alternative),
+  // the fallback in _pickPrimary re-targets it; we still reset the swap
+  // timer so we don't loop on every tick.
   _updatePrimaries() {
     for (const team of ["green", "red"]) {
-      // 1) Defensive dedup of currently-live primaries.
+      // 0) Force-swap any alive primary whose target-switch reaction has
+      //    expired. Remember the dropped id per-subfleet so the re-pick
+      //    pass below can exclude it from the candidate set.
+      const justSwappedOff = new Map(); // subfleetId -> dropped enemy id
+      for (const sub of this.subfleets[team]) {
+        if (
+          sub.primary &&
+          sub.primary.alive &&
+          sub.primarySwapAt !== null &&
+          this.simTime >= sub.primarySwapAt
+        ) {
+          justSwappedOff.set(sub.id, sub.primary.id);
+          sub.primary = null;
+          sub.primaryStartTime = null;
+          sub.primarySwapAt = null;
+        }
+      }
+
+      // 1) Defensive dedup of currently-live primaries (carried over from
+      //    the original logic). A subfleet that loses the dedup race also
+      //    has its swap-timer state cleared so the re-pick below seeds a
+      //    fresh deadline.
       const seen = new Set();
       for (const sub of this.subfleets[team]) {
         if (sub.primary && sub.primary.alive) {
           if (seen.has(sub.primary.id)) {
             sub.primary = null;
+            sub.primaryStartTime = null;
+            sub.primarySwapAt = null;
           } else {
             seen.add(sub.primary.id);
           }
         }
       }
+
       // 2) takenIds = ids still claimed after the dedup pass.
       const takenIds = new Set(seen);
-      // 3) Re-pick for any subfleet without a live primary, excluding
-      //    siblings' claims; add the new pick to takenIds so the next
-      //    sibling subfleet can't immediately collide with it.
+
+      // 3) Re-pick for any subfleet without a live primary. Exclude
+      //    sibling claims AND, if this subfleet just force-swapped, the
+      //    just-dropped enemy id (so we genuinely change targets when an
+      //    alternative exists). Seed primaryStartTime / primarySwapAt
+      //    every time we assign a primary.
+      const cfg = FLEET_CONFIG[team];
+      const lo = Math.max(0, cfg.targetSwitchReactionMin);
+      const hi = Math.max(lo, cfg.targetSwitchReactionMax);
       for (const sub of this.subfleets[team]) {
-        if (!sub.primary || !sub.primary.alive) {
-          sub.primary = this._pickPrimary(team, sub.id, takenIds);
-          if (sub.primary) takenIds.add(sub.primary.id);
+        if (sub.primary && sub.primary.alive) continue;
+
+        const droppedId = justSwappedOff.get(sub.id);
+        let perSubfleetTaken = takenIds;
+        if (droppedId !== undefined && !takenIds.has(droppedId)) {
+          // Local copy so we don't poison sibling subfleets' candidate sets
+          // with this subfleet's just-dropped target.
+          perSubfleetTaken = new Set(takenIds);
+          perSubfleetTaken.add(droppedId);
+        }
+
+        const newPrimary = this._pickPrimary(team, sub.id, perSubfleetTaken);
+        sub.primary = newPrimary;
+        if (newPrimary) {
+          takenIds.add(newPrimary.id);
+          sub.primaryStartTime = this.simTime;
+          sub.primarySwapAt = this.simTime + lo + Math.random() * (hi - lo);
+        } else {
+          sub.primaryStartTime = null;
+          sub.primarySwapAt = null;
         }
       }
     }
@@ -270,9 +421,20 @@ export class Battle {
   // for the first time), every ship rolls a fresh reaction delay (uniform
   // 0-1 s), then enters a 3.5 s lock cycle. Only ships in the "locked" state
   // are allowed to fire (enforced in the combat loop).
+  //
+  // Scimitars don't shoot, so they're skipped here -- they have their own
+  // rep state machine in _updateLogiLocks. Important side effect we MUST
+  // preserve: the nightmare lock progression is what sets `firstLockedAt`
+  // on a primary, which in turn arms BOTH the hardener-on reaction AND
+  // the broadcast-for-reps reaction below. Under the nightmares-only
+  // target rule (see _pickPrimary), scimitars are never selected as
+  // primary, so they never get locked, never set firstLockedAt, and
+  // therefore never activate hardeners or broadcast -- which is fine
+  // because they're also never taking damage.
   _updateLocks(dt) {
     for (const s of this.ships) {
       if (!s.alive) continue;
+      if (s.shipType !== "nightmare") continue; // scimitars don't lock for DPS
       const sub = this.subfleets[s.team][s.subfleetId];
       const primary = sub ? sub.primary : null;
 
@@ -310,7 +472,8 @@ export class Battle {
           // First completed enemy lock against `primary` triggers its
           // hardener-reaction countdown. Roll uses the *primary's* team
           // config (it's the targeted ship that's reacting). One-shot:
-          // subsequent lockers don't reset or re-roll.
+          // subsequent lockers don't reset or re-roll. Same trigger arms
+          // the broadcast-for-reps timer in _updateBroadcasts below.
           if (primary.firstLockedAt === null) {
             primary.firstLockedAt = this.simTime;
             const hcfg = FLEET_CONFIG[primary.team];
@@ -327,24 +490,148 @@ export class Battle {
     }
   }
 
-  // Flip hardenersOn for any ship whose activation time has arrived, and
-  // flip hardenersOverheated for any ship whose overheat time has arrived.
-  // Trigger / activation time for hardeners is seeded inside _updateLocks
-  // on the first enemy lock; the overheat trigger is seeded HERE on the
-  // tick that hardeners actually come online (so the overheat reaction is
-  // counted from "hardeners on", not from "first locked"). Once flipped,
-  // both flags stay on for the rest of the battle (no cycle / cap / burnout
-  // model in v1).
+  // Per-nightmare crystal-swap state machine. Each tick:
+  //   1. Resolve the engagement reference (the subfleet's primary; we use
+  //      the primary call rather than s.target so a pilot can already start
+  //      "noticing they need to swap" during the lock cycle, before the
+  //      lasers actually start firing -- otherwise long-range engagements
+  //      would always open with whatever crystal happened to be loaded at
+  //      spawn).
+  //   2. Compute the ideal crystal for that distance via pickIdealCrystalIdx.
+  //   3. Decide whether a swap is warranted, per the user spec:
+  //        outranged: distance > current.optimalRange + 0.5 * current.falloff
+  //        over-ranged: distance <= current.optimalRange AND the ideal
+  //                     crystal has a *strictly smaller* optimal than current
+  //                     (i.e., a higher-damage crystal would still cover the
+  //                     target). Crystals with the same optimal but higher
+  //                     damage don't exist in the table, so this captures
+  //                     the spec's "higher than necessary optimal range".
+  //   4. If warranted, set pendingCrystalIdx = ideal. Roll crystalSwapAt
+  //      ONCE if not already pending; do NOT re-roll if the ideal target
+  //      changes mid-wait (the pilot has already "noticed", they're just
+  //      reaching for whatever crystal is now best when they actually swap).
+  //   5. If the timer has elapsed this tick, apply the swap (using the
+  //      latest ideal at the moment of swap) and clear pending state.
+  //   6. If no swap is warranted (or there's no engagement reference),
+  //      cancel any pending swap so a transient "I should swap" event
+  //      doesn't fire later when the situation has already resolved.
+  //
+  // Crystal swap itself is instantaneous ("0 s to change the laser crystal"
+  // per spec). The "between laser shots" constraint is satisfied implicitly
+  // because shots are instantaneous events at cooldown=0, and this method
+  // runs before the firing loop in tick(); a swap that fires this tick is
+  // applied before the same-tick volley.
+  //
+  // Scimitars, dead ships, and ships without an engagement reference are
+  // skipped. Burned-out hardeners / lock state are NOT consulted -- the
+  // crystal choice is independent of defensive state.
+  _updateCrystalSwaps() {
+    for (const s of this.ships) {
+      if (!s.alive) continue;
+      if (s.shipType !== "nightmare") continue;
+
+      const sub = this.subfleets[s.team][s.subfleetId];
+      const ref =
+        sub && sub.primary && sub.primary.alive ? sub.primary : null;
+      if (!ref) {
+        s.pendingCrystalIdx = null;
+        s.crystalSwapAt = null;
+        continue;
+      }
+
+      const distance = s.position.distanceTo(ref.position);
+      const ideal = pickIdealCrystalIdx(distance);
+      const current = CRYSTALS[s.crystalIdx];
+
+      let wantSwap = false;
+      if (ideal !== s.crystalIdx) {
+        const outOfRange =
+          distance > current.optimalRange + 0.5 * current.falloff;
+        const overRanged =
+          distance <= current.optimalRange &&
+          CRYSTALS[ideal].optimalRange < current.optimalRange;
+        if (outOfRange || overRanged) wantSwap = true;
+      }
+
+      if (!wantSwap) {
+        s.pendingCrystalIdx = null;
+        s.crystalSwapAt = null;
+        continue;
+      }
+
+      s.pendingCrystalIdx = ideal;
+      if (s.crystalSwapAt === null) {
+        const cfg = FLEET_CONFIG[s.team];
+        const lo = Math.max(0, cfg.crystalReactionMin);
+        const hi = Math.max(lo, cfg.crystalReactionMax);
+        s.crystalSwapAt = this.simTime + lo + Math.random() * (hi - lo);
+      }
+
+      if (this.simTime >= s.crystalSwapAt) {
+        s.crystalIdx = ideal;
+        s.pendingCrystalIdx = null;
+        s.crystalSwapAt = null;
+      }
+    }
+  }
+
+  // Broadcast-for-repairs progression. Independent of the hardener timer
+  // (separate roll) but shares the same trigger: firstLockedAt being set
+  // on a ship arms its broadcastingAt. Once simTime crosses that timestamp
+  // the ship flips isBroadcasting = true and becomes a candidate rep
+  // target for friendly Scimitars (consumed by _updateLogiLocks). One-shot
+  // per ship lifetime; we don't re-arm after death or after the shield
+  // is restored.
+  _updateBroadcasts() {
+    for (const s of this.ships) {
+      if (!s.alive) continue;
+      if (s.firstLockedAt === null) continue;
+      if (s.broadcastingAt === null) {
+        const cfg = FLEET_CONFIG[s.team];
+        const lo = Math.max(0, cfg.broadcastReactionMin);
+        const hi = Math.max(lo, cfg.broadcastReactionMax);
+        s.broadcastingAt =
+          s.firstLockedAt + lo + Math.random() * (hi - lo);
+      }
+      if (!s.isBroadcasting && this.simTime >= s.broadcastingAt) {
+        s.isBroadcasting = true;
+      }
+    }
+  }
+
+  // Hardener state machine, ticked once per sim step. Linear progression
+  // per-ship:
+  //   off (waiting)  -> on             at hardenerActivateAt
+  //   on             -> overheated     at overheatActivateAt
+  //   overheated     -> burned out     at overheatBurnoutAt
+  //                                    (fires SIM.overheatBurnoutDuration s
+  //                                    after entering the overheated state)
+  //
+  // Triggers / seeds:
+  //   hardenerActivateAt is seeded inside _updateLocks on the first
+  //     completed enemy lock against this ship.
+  //   overheatActivateAt is seeded HERE the tick hardeners come online,
+  //     so the overheat reaction counts from "hardeners on" (not "first
+  //     locked"). Per-team config, uniform roll, clamped to >= 0.
+  //   overheatBurnoutAt is seeded HERE the tick overheating begins.
+  //     Single global SIM constant (module-level property, not a pilot
+  //     reaction time).
+  //
+  // Burned-out ships are skipped entirely so the (well-elapsed)
+  // hardenerActivateAt deadline doesn't keep re-activating them every
+  // tick. After burnout, both hardenersOn and hardenersOverheated are
+  // false, so Ship.takeHit's resist lookup naturally falls back to the
+  // BASE resist profile and main.js drops the .hardened / .overheated
+  // CSS classes from the roster row.
   _updateHardeners() {
     for (const s of this.ships) {
       if (!s.alive) continue;
+      if (s.hardenersBurnedOut) continue;
 
       if (!s.hardenersOn) {
         if (s.hardenerActivateAt === null) continue;
         if (this.simTime >= s.hardenerActivateAt) {
           s.hardenersOn = true;
-          // Seed the overheat reaction now that hardeners are live.
-          // Per-team config; uniform roll in [min, max], clamped to >= 0.
           const ocfg = FLEET_CONFIG[s.team];
           const olo = Math.max(0, ocfg.overheatReactionMin);
           const ohi = Math.max(olo, ocfg.overheatReactionMax);
@@ -355,6 +642,205 @@ export class Battle {
         if (s.overheatActivateAt === null) continue;
         if (this.simTime >= s.overheatActivateAt) {
           s.hardenersOverheated = true;
+          s.overheatBurnoutAt = this.simTime + SIM.overheatBurnoutDuration;
+        }
+      } else {
+        // hardenersOn && hardenersOverheated && !hardenersBurnedOut.
+        if (s.overheatBurnoutAt === null) continue;
+        if (this.simTime >= s.overheatBurnoutAt) {
+          s.hardenersOn = false;
+          s.hardenersOverheated = false;
+          s.hardenersBurnedOut = true;
+        }
+      }
+    }
+  }
+
+  // True if any enemy-team subfleet currently has `ship` as its primary
+  // call. Used by the Scimitar logi state machine to decide whether a
+  // friendly is still "under attack" and worth repping. We deliberately
+  // check at the subfleet (primary) level rather than per-enemy-ship lock
+  // state because:
+  //   - Ships in "reacting" / "locking" haven't set s.target yet, so a
+  //     per-ship check would miss ships that are *committed* to attacking
+  //     this friendly but haven't completed their lock cycle yet.
+  //   - When an enemy subfleet swaps off (target-switch timer, dedup, or
+  //     primary death), every member's lock collapses on the next
+  //     _updateLocks pass anyway, so the subfleet-primary signal is the
+  //     correct fleet-level "still committed" indicator.
+  _isShipUnderAttack(ship) {
+    const enemyTeam = ship.team === "green" ? "red" : "green";
+    for (const sub of this.subfleets[enemyTeam]) {
+      if (sub.primary === ship) return true;
+    }
+    return false;
+  }
+
+  // Pick a rep target for a Scimitar that's currently idle. Returns the
+  // nearest friendly ship (any type, including other Scimitars but never
+  // self) that is broadcasting, isn't already at full shield, AND is
+  // currently being primaried by an enemy subfleet (so reps are still
+  // genuinely needed). Returns null if no eligible target exists.
+  //
+  // The under-attack gate is essential: isBroadcasting is one-shot per
+  // ship lifetime, so without it a Scimitar would re-pick a no-longer-
+  // attacked friendly every tick after dropping it in _updateLogiLocks.
+  //
+  // We don't try to load-balance rep coverage across multiple Scimitars --
+  // every Scimitar independently picks the nearest broadcaster. With the
+  // user-confirmed "all 4 boosters stack on one target" allocation, this
+  // just means multiple Scimitars may converge on the same primary
+  // broadcaster, which is realistic logi behaviour.
+  _pickRepTarget(scimitar) {
+    let best = null;
+    let bestDistSq = Infinity;
+    for (const o of this.ships) {
+      if (!o.alive) continue;
+      if (o.team !== scimitar.team) continue;
+      if (o === scimitar) continue;
+      if (!o.isBroadcasting) continue;
+      if (!this._isShipUnderAttack(o)) continue;
+      const maxShield = SHIP_STATS[o.shipType].shieldHP;
+      // Tiny epsilon so we don't thrash between idle <-> reacting on a
+      // ship that is technically a hair below max from rounding.
+      if (o.shield >= maxShield - 0.5) continue;
+      const d = scimitar.position.distanceToSquared(o.position);
+      if (d < bestDistSq) {
+        bestDistSq = d;
+        best = o;
+      }
+    }
+    return best;
+  }
+
+  // Apply one rep cycle from `scimitar` to `target`: all 4 boosters stack
+  // on the same target with EVE optimal+falloff range attenuation. Adds
+  // raw HP to the target's shield (capped at max). Resist amplification
+  // is for analytical EHP/s only -- the actual shield HP gain is just
+  // rep_amount * count * range_mult per cycle. Emits a "rep" hit-event
+  // so the renderer can draw / refresh a rep beam.
+  _applyRepCycle(scimitar, target) {
+    const d = scimitar.position.distanceTo(target.position);
+    const opt = REMOTE_REP.optimalRange;
+    const fall = REMOTE_REP.falloff;
+    let rangeMult;
+    if (d <= opt) {
+      rangeMult = 1.0;
+    } else {
+      const x = (d - opt) / fall;
+      rangeMult = Math.pow(0.5, x * x);
+    }
+    const repPerCycle = REMOTE_REP.repAmount * REMOTE_REP.count * rangeMult;
+    const maxShield = SHIP_STATS[target.shipType].shieldHP;
+    const before = target.shield;
+    target.shield = Math.min(maxShield, target.shield + repPerCycle);
+    const applied = target.shield - before;
+    this.hitEvents.push({
+      kind: "rep",
+      fromId: scimitar.id,
+      toId: target.id,
+      amount: applied,
+      t: this.simTime,
+    });
+  }
+
+  // Scimitar rep state machine. Per-Scimitar:
+  //   idle      -> no rep target; if any friendly is broadcasting AND still
+  //                under enemy primary call, pick the nearest and roll a
+  //                fresh logi-reaction delay.
+  //   reacting  -> tick down repTimer; on expiry start the 2 s lock cycle.
+  //   locking   -> tick down repTimer (= REMOTE_REP.lockTime initially);
+  //                on expiry transition to repping with a randomized initial
+  //                cooldown so simultaneously-locking Scimitars don't all
+  //                fire their first cycle on the same tick.
+  //   repping   -> if target dead OR target.shield is full, drop back to
+  //                idle (re-pick next tick after a fresh reaction roll).
+  //                Otherwise tick repCooldown; when it expires, fire one
+  //                cycle and reset to REMOTE_REP.cycleTime.
+  //
+  // Universal exit (any state): if the rep target is no longer being
+  // primaried by any enemy subfleet, drop and re-evaluate. This lets
+  // Scimitars stop wasting cycles on friendlies the enemy has already
+  // swapped off (e.g., when the enemy's target-switch reaction fires) and
+  // redirect reps to friendlies who are actually still under fire.
+  _updateLogiLocks(dt) {
+    for (const s of this.ships) {
+      if (!s.alive) continue;
+      if (s.shipType !== "scimitar") continue;
+
+      // Drop a target that's dead OR no longer under attack. Applied
+      // above the state-specific branches so reacting / locking / repping
+      // all release together; the idle branch below will re-pick on the
+      // same tick if anyone else still needs reps. We also drop on full
+      // shield in the repping branch so the Scimitar can re-evaluate to
+      // a more damaged friendly.
+      if (
+        s.repTarget &&
+        (!s.repTarget.alive || !this._isShipUnderAttack(s.repTarget))
+      ) {
+        s.repState = "idle";
+        s.repTarget = null;
+        s.repTargetId = null;
+      }
+
+      if (s.repState === "idle") {
+        const target = this._pickRepTarget(s);
+        if (target) {
+          s.repTarget = target;
+          s.repTargetId = target.id;
+          s.repState = "reacting";
+          const cfg = FLEET_CONFIG[s.team];
+          const lo = Math.max(0, cfg.logiReactionMin);
+          const hi = Math.max(lo, cfg.logiReactionMax);
+          s.repTimer = lo + Math.random() * (hi - lo);
+        }
+        continue;
+      }
+
+      if (s.repState === "reacting") {
+        s.repTimer -= dt;
+        if (s.repTimer <= 0) {
+          s.repState = "locking";
+          s.repTimer = REMOTE_REP.lockTime;
+        }
+        continue;
+      }
+
+      if (s.repState === "locking") {
+        s.repTimer -= dt;
+        if (s.repTimer <= 0) {
+          s.repState = "repping";
+          // Stagger the first cycle so a fleet of Scimitars that all
+          // finish locking on the same tick don't apply their first cycle
+          // in unison (which would create big sawtooth shield refills).
+          s.repCooldown = Math.random() * REMOTE_REP.cycleTime;
+        }
+        continue;
+      }
+
+      if (s.repState === "repping") {
+        // Target gone? (already nulled above for dead; check full-shield here.)
+        const target = s.repTarget;
+        if (!target) {
+          s.repState = "idle";
+          continue;
+        }
+        const maxShield = SHIP_STATS[target.shipType].shieldHP;
+        if (target.shield >= maxShield - 0.5) {
+          // Shield topped off; drop and re-pick next tick. We do NOT reset
+          // isBroadcasting on the target -- they're still flagged as having
+          // broadcast (one-shot), which is fine: the scimitar will just
+          // re-pick THIS same target if no one else needs reps and they
+          // start taking damage again.
+          s.repState = "idle";
+          s.repTarget = null;
+          s.repTargetId = null;
+          continue;
+        }
+        s.repCooldown -= dt;
+        if (s.repCooldown <= 0) {
+          this._applyRepCycle(s, target);
+          s.repCooldown = REMOTE_REP.cycleTime;
         }
       }
     }
@@ -365,9 +851,12 @@ export class Battle {
     if (this.over) return;
     this.simTime += dt;
 
-    // Drain stale beam-flash events older than the flash duration so the
-    // renderer doesn't have to filter them every frame.
-    const cutoff = this.simTime - SIM.beamFlashDuration;
+    // Drain stale beam-flash events older than the longest beam lifetime.
+    // We use the rep-beam duration as the cutoff (it's >= the turret beam
+    // duration), so the renderer can still find rep events when refreshing
+    // their endpoints across the full cycle.
+    const cutoff =
+      this.simTime - Math.max(SIM.beamFlashDuration, SIM.repBeamDuration);
     while (this.hitEvents.length && this.hitEvents[0].t < cutoff) {
       this.hitEvents.shift();
     }
@@ -383,7 +872,10 @@ export class Battle {
     }
     this._updatePrimaries();
     this._updateLocks(dt);
+    this._updateCrystalSwaps();
+    this._updateBroadcasts();
     this._updateHardeners();
+    this._updateLogiLocks(dt);
     updateAI(this, dt);
 
     // Integrate motion.
@@ -396,9 +888,11 @@ export class Battle {
 
     // Combat: tick weapon cooldowns; fire only when locked. If unlocked, the
     // cooldown clamps at 0 so the first volley after lock isn't delayed by a
-    // wasted cycle.
+    // wasted cycle. Scimitars never enter the firing branch -- they have no
+    // turrets and their reps are handled in _updateLogiLocks.
     for (const s of this.ships) {
       if (!s.alive) continue;
+      if (s.shipType !== "nightmare") continue;
       s.weaponCooldown -= dt;
       if (s.weaponCooldown > 0) continue;
 
@@ -409,34 +903,64 @@ export class Battle {
         continue;
       }
       s.weaponCooldown = NIGHTMARE.rateOfFire;
-      const targetId = s.target.id;
+      // Snapshot the target reference + id BEFORE fireVolley, since
+      // fireVolley calls target.takeHit which can flip target.alive
+      // to false. We need the snapshot to detect the kill afterwards
+      // without losing the team / shipType / position info.
+      const targetSnapshot = s.target;
+      const targetId = targetSnapshot.id;
       const results = s.fireVolley();
       // Emit one beam-flash event per individual laser shot so multiple
       // bright flashes can stack visually for hits.
       for (const r of results) {
         this.hitEvents.push({
+          kind: "fire",
           fromId: s.id,
           toId: targetId,
           hit: r.hit,
           t: this.simTime,
         });
       }
+      // The canFire gate above guarantees targetSnapshot.alive was true
+      // immediately before fireVolley, so a false reading here means this
+      // volley dealt the killing blow. Emit one death event so the
+      // renderer can spawn an explosion at the ship's last position.
+      // (Multiple shooters can target the same ship in the same tick,
+      // but JS is single-threaded and the canFire check is re-evaluated
+      // per shooter, so a second shooter sees alive=false and skips its
+      // volley; no double-emission.)
+      if (!targetSnapshot.alive) {
+        this.hitEvents.push({
+          kind: "death",
+          shipId: targetSnapshot.id,
+          team: targetSnapshot.team,
+          shipType: targetSnapshot.shipType,
+          t: this.simTime,
+        });
+      }
     }
 
-    // End condition.
-    let greenAlive = 0;
-    let redAlive = 0;
+    // End condition. Counts NIGHTMARES only, not total ships, because
+    // under the nightmares-only target rule a side without nightmares has
+    // no offensive capability -- its surviving scimitars can't damage
+    // anything and the enemy nightmares would have no targets, so without
+    // this rule the battle would just stall to the sim-time cap.
+    // Surviving scimitars on the losing side simply float around as
+    // non-combatants once the battle is called.
+    let greenN = 0;
+    let redN = 0;
     for (const s of this.ships) {
       if (!s.alive) continue;
-      if (s.team === "green") greenAlive++;
-      else redAlive++;
+      if (s.shipType !== "nightmare") continue;
+      if (s.team === "green") greenN++;
+      else redN++;
     }
-    if (greenAlive === 0 || redAlive === 0) {
+    if (greenN === 0 || redN === 0) {
       this.over = true;
       this.winner =
-        greenAlive === 0 && redAlive === 0
+        greenN === 0 && redN === 0
           ? "draw"
-          : greenAlive > 0
+          : greenN > 0
           ? "green"
           : "red";
     }

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sensitivity Analysis - Nightmare Fleet Battle Simulator</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body class="analysis-body">
+    <div class="analysis-shell">
+      <header class="analysis-header">
+        <div class="analysis-title-row">
+          <h1>Battle Sensitivity Analysis</h1>
+          <a href="index.html" class="back-link">&larr; Back to live simulator</a>
+        </div>
+        <p class="analysis-blurb">
+          For each parameter (reaction times, fleet composition, ...), this tool
+          runs many headless battles where the parameter is varied on the
+          <span class="green">green</span> team while the
+          <span class="red">red</span> team is held at the baseline. The plots
+          below show the average <em>ships ahead at battle end</em>
+          (green&nbsp;alive&nbsp;&minus;&nbsp;red&nbsp;alive)
+          versus the parameter's value, with 95% confidence intervals from N
+          trials per setting. The tornado plot at the top sorts parameters by
+          the size of their effect.
+        </p>
+      </header>
+
+      <section class="analysis-controls">
+        <div class="ctrl-group">
+          <h3>Baseline fleet (per side)</h3>
+          <div class="ctrl-row">
+            <label>Nightmares <input id="ctrl-nightmares" type="number" min="1" max="200" step="1" value="20" /></label>
+            <label>Scimitars <input id="ctrl-scimitars" type="number" min="0" max="50" step="1" value="3" /></label>
+            <label>Subfleets <input id="ctrl-subfleets" type="number" min="1" max="6" step="1" value="1" /></label>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <h3>Trial budget</h3>
+          <div class="ctrl-row">
+            <label title="Number of independent battles run per setting. Higher = tighter error bars but proportionally longer total runtime.">Trials per setting <input id="ctrl-trials" type="number" min="1" max="200" step="1" value="10" /></label>
+            <label title="Sim-time cap per battle. Battles that haven't ended by this time are scored by HP-fraction remaining.">Sim-time cap (s) <input id="ctrl-simcap" type="number" min="60" max="3600" step="30" value="600" /></label>
+            <label title="If checked, runs the symmetric reaction sweep too (both teams varied together). Roughly doubles reaction-sweep runtime.">Include symmetric sweeps <input id="ctrl-symmetric" type="checkbox" /></label>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <h3>Run</h3>
+          <div class="ctrl-row">
+            <button id="btn-run" class="primary">Run all experiments</button>
+            <button id="btn-pause" disabled>Pause</button>
+            <button id="btn-cancel" disabled>Cancel</button>
+            <button id="btn-download" disabled>Download results (JSON)</button>
+          </div>
+          <div class="ctrl-row">
+            <span id="status-text">Ready.</span>
+          </div>
+          <div class="progress-outer"><div id="progress-bar" class="progress-inner"></div></div>
+          <div class="ctrl-row small">
+            <span>Estimated total battles: <span id="estimate-battles">-</span></span>
+            <span class="sep">|</span>
+            <span>Completed: <span id="completed-count">0</span></span>
+            <span class="sep">|</span>
+            <span>Elapsed: <span id="elapsed-time">0s</span></span>
+            <span class="sep">|</span>
+            <span>ETA: <span id="eta-time">-</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="tornado-section">
+        <h2>Tornado: parameter influence ranking</h2>
+        <p class="section-blurb">
+          Bars show the <em>span</em> of mean ships-ahead across each
+          parameter's sweep range &mdash; longer bars mean the parameter
+          changes the battle outcome more dramatically. Computed live as
+          experiments complete.
+        </p>
+        <div id="tornado-plot"></div>
+      </section>
+
+      <section class="experiments-section">
+        <h2>Per-parameter sweeps</h2>
+        <p class="section-blurb">
+          Each plot shows the mean ships ahead at battle end, green&nbsp;&minus;&nbsp;red
+          (positive = green wins by more) on the y-axis vs. the parameter value on the x-axis.
+          Dot = mean over N trials, vertical bar = 95% confidence interval,
+          faded background dots = individual trial outcomes (jittered).
+          The dashed horizontal line at y = 0 is the &ldquo;parity&rdquo; line.
+        </p>
+        <div id="experiment-grid"></div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/analysis.js"></script>
+  </body>
+</html>

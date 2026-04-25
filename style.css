@@ -166,10 +166,61 @@ select:hover {
   padding-bottom: 5px;
   border-bottom: 1px dashed rgba(120, 150, 200, 0.12);
 }
+.btn-match-fleet {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  text-align: center;
+}
 .cfg-label {
   font-size: 10px;
   opacity: 0.7;
   margin-bottom: 3px;
+}
+/* Collapsible section wrapping a group of cfg-rows. Uses native <details>
+   so the open/closed state is keyboard-accessible without JS, but with a
+   custom disclosure arrow that matches the existing label styling. */
+.cfg-section {
+  margin-bottom: 4px;
+}
+.cfg-section[open] {
+  margin-bottom: 6px;
+}
+.cfg-section > summary {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-bottom: 3px;
+  padding: 1px 0;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+.cfg-section > summary::-webkit-details-marker {
+  display: none;
+}
+.cfg-section > summary::before {
+  content: "\25B8";
+  display: inline-block;
+  width: 10px;
+  font-size: 9px;
+  opacity: 0.65;
+  transition: transform 0.1s ease-out;
+}
+.cfg-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+.cfg-section > summary:hover {
+  opacity: 0.95;
+}
+/* Sub-headings inside a multi-block section (e.g. each reaction kind under
+   the combined "Reactions" group). */
+.cfg-sublabel {
+  font-size: 9px;
+  opacity: 0.55;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  padding-left: 10px;
 }
 .cfg-row {
   display: flex;
@@ -301,10 +352,22 @@ select:hover {
 }
 
 .ship-label {
-  width: 30px;
+  width: 38px;
   font-family: "Consolas", "Menlo", monospace;
   letter-spacing: 0.5px;
   color: #d0d8e6;
+}
+
+/* Scimitar (logistics) rows: subtle cyan accent on the label so logi can be
+   picked out at a glance without making the row visually noisy. The leader
+   asterisk + primary highlight + dead/hardened states all still apply on
+   top of this with no bleed-through issues. */
+.ship-row.scimitar .ship-label {
+  color: #6ff0c4;
+}
+.ship-row.scimitar {
+  border-left: 1px dashed rgba(111, 240, 196, 0.35);
+  padding-left: 3px;
 }
 
 /* Hardener pip: dim "H" by default; lights up cyan + glow when on. */
@@ -345,6 +408,42 @@ select:hover {
   box-shadow: inset 0 0 0 1px rgba(255, 138, 61, 0.65);
 }
 
+/* Crystal pip: shows the 2-letter abbreviation of the nightmare's currently-
+   loaded frequency crystal. Sits next to the hardener pip. The .pending
+   modifier is added by main.js while a crystal swap is queued (pilot has
+   noticed they need to swap but the reaction time hasn't elapsed yet),
+   pulsing amber so the swap state machine is visually obvious. */
+.crystal-pip {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 2px;
+  height: 11px;
+  line-height: 11px;
+  text-align: center;
+  font-family: "Consolas", "Menlo", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 230, 180, 0.85);
+  background: rgba(80, 60, 30, 0.6);
+  border: 1px solid rgba(220, 180, 110, 0.35);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.crystal-pip.pending {
+  color: #1a1000;
+  background: #ffc060;
+  border-color: #ffc060;
+  box-shadow: 0 0 4px rgba(255, 192, 96, 0.85);
+  animation: crystal-pulse 1.2s ease-in-out infinite;
+}
+@keyframes crystal-pulse {
+  0%, 100% { box-shadow: 0 0 3px rgba(255, 192, 96, 0.55); }
+  50%      { box-shadow: 0 0 7px rgba(255, 192, 96, 1.0); }
+}
+.ship-row.dead .crystal-pip {
+  opacity: 0.4;
+}
+
 .bars {
   flex: 1;
   display: flex;
@@ -370,4 +469,352 @@ select:hover {
 }
 .bar.struct .fill {
   background: #c0c0c0;
+}
+
+/* --- Sensitivity-analysis page (analysis.html) --------------------------
+   Layout is a vertical-flow document, NOT the fixed-overlay HUD used by
+   the live simulator. We override `body { overflow: hidden }` from above
+   via a body class (.analysis-body) so the analysis page can scroll.
+   All selectors here are scoped to .analysis-body or .analysis-shell so
+   they can't bleed into the live-simulator UI. */
+.analysis-body {
+  overflow: auto;
+  background: #0a0e16;
+}
+.analysis-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 28px 64px 28px;
+  color: #cfd6e4;
+}
+.analysis-header h1 {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+}
+.analysis-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 6px;
+}
+.back-link {
+  color: #9bbcff;
+  text-decoration: none;
+  font-size: 13px;
+}
+.back-link:hover {
+  text-decoration: underline;
+}
+.analysis-blurb {
+  margin: 4px 0 18px 0;
+  font-size: 13px;
+  color: #aab4c8;
+  line-height: 1.5;
+  max-width: 980px;
+}
+.analysis-blurb em {
+  color: #d8def0;
+  font-style: italic;
+}
+
+.analysis-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: rgba(20, 28, 42, 0.65);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 22px;
+}
+.ctrl-group {
+  flex: 1;
+  min-width: 240px;
+}
+.ctrl-group h3 {
+  margin: 0 0 6px 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9aa6bc;
+}
+.ctrl-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  font-size: 12px;
+}
+.ctrl-row.small {
+  font-size: 11px;
+  opacity: 0.75;
+}
+.ctrl-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.ctrl-row input[type="number"] {
+  width: 70px;
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.25);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font: inherit;
+  font-size: 12px;
+}
+.ctrl-row input[type="checkbox"] {
+  cursor: pointer;
+}
+.ctrl-row button {
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.3);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ctrl-row button:hover:not(:disabled) {
+  background: rgba(60, 80, 110, 0.95);
+}
+.ctrl-row button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ctrl-row button.primary {
+  background: rgba(70, 130, 90, 0.85);
+  border-color: rgba(125, 240, 154, 0.4);
+}
+.ctrl-row button.primary:hover:not(:disabled) {
+  background: rgba(90, 160, 110, 0.95);
+}
+.progress-outer {
+  width: 100%;
+  height: 6px;
+  background: rgba(40, 50, 70, 0.9);
+  border-radius: 3px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.progress-inner {
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #5dd17a, #9bff9b);
+  transition: width 100ms linear;
+}
+
+.analysis-shell h2 {
+  margin: 26px 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+.section-blurb {
+  margin: 4px 0 12px 0;
+  font-size: 12px;
+  color: #8e9ab0;
+  line-height: 1.5;
+  max-width: 980px;
+}
+.section-blurb em {
+  color: #d8def0;
+  font-style: italic;
+}
+
+.tornado-section {
+  margin-bottom: 14px;
+}
+#tornado-plot {
+  background: rgba(20, 28, 42, 0.6);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 120px;
+}
+.tornado-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.experiments-section {
+  margin-top: 6px;
+}
+#experiment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  gap: 16px;
+  margin-top: 4px;
+}
+.exp-card {
+  background: rgba(20, 28, 42, 0.6);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.exp-card h3 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+.exp-desc {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #8e9ab0;
+}
+/* Per-card tunable editor block (baseline range / swept values).
+ * Sits between the description and the plot so the controls that drive
+ * the graph below are visually tied to it. Compact / dense to avoid
+ * eating into the plot's vertical space. */
+.exp-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0 10px 0;
+  padding: 6px 8px;
+  background: rgba(20, 28, 42, 0.45);
+  border: 1px solid rgba(120, 150, 200, 0.14);
+  border-radius: 4px;
+  font-size: 11px;
+  color: #cfd6e4;
+}
+/* Stacked variant for the damage card (two rows: sweep values + baseline). */
+.exp-editor-stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.exp-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.exp-editor-label {
+  color: #9aa6bc;
+  font-weight: 600;
+}
+.exp-editor label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #cfd6e4;
+  font-weight: 400;
+}
+.exp-editor input[type="number"] {
+  width: 56px;
+  padding: 2px 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(120, 150, 200, 0.4);
+  border-radius: 3px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+}
+.exp-editor input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(120, 150, 200, 0.4);
+  border-radius: 3px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+}
+.exp-editor input:focus {
+  outline: none;
+  border-color: rgba(150, 190, 255, 0.7);
+  background: rgba(0, 0, 0, 0.45);
+}
+.exp-editor-reset {
+  padding: 2px 8px;
+  background: rgba(120, 150, 200, 0.15);
+  border: 1px solid rgba(120, 150, 200, 0.3);
+  border-radius: 3px;
+  color: #cfd6e4;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.exp-editor-reset:hover {
+  background: rgba(120, 150, 200, 0.3);
+}
+.exp-editor-unit {
+  color: #9aa6bc;
+  font-size: 10px;
+}
+.exp-editor-error {
+  color: #ff7777;
+  font-size: 10px;
+  flex-basis: 100%;
+}
+.exp-plot {
+  margin: 4px 0 8px 0;
+}
+.exp-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.exp-table {
+  margin-top: 6px;
+  overflow-x: auto;
+}
+.exp-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+.exp-table th,
+.exp-table td {
+  text-align: right;
+  padding: 3px 6px;
+  border-bottom: 1px solid rgba(120, 150, 200, 0.1);
+  font-variant-numeric: tabular-nums;
+}
+.exp-table th {
+  color: #9aa6bc;
+  font-weight: 600;
+  text-align: right;
+  border-bottom-color: rgba(120, 150, 200, 0.25);
+}
+.exp-table tr td:first-child,
+.exp-table tr th:first-child {
+  text-align: left;
+}
+
+.muted {
+  color: #6c7a92;
+  font-size: 12px;
+  font-style: italic;
+  padding: 14px 6px;
+}
+
+/* Small "Sensitivity analysis ->" link injected into the live simulator's
+   top-left HUD so users can jump from the live view to the batch analysis
+   page. Inherits the HUD's font sizing / colour scheme so it doesn't look
+   tacked-on. */
+.hud-link {
+  font-size: 11px;
+  color: #9bbcff;
+  text-decoration: none;
+  opacity: 0.85;
+}
+.hud-link:hover {
+  text-decoration: underline;
+  opacity: 1;
 }

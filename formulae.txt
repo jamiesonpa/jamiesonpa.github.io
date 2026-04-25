@@ -1,0 +1,94 @@
+[BASE RAW DAMAGE]
+
+base_damage = (em_damage + thermal_damage) * turret_damage_multiplier
+base_damage *= damage_modifiers
+
+
+[TRACKING FORMULA]
+
+effective_tracking_speed = tracking_speed * tracking_modifiers
+tracking_term = (angular_velocity * turret_signature_resolution) / (effective_tracking_speed * target_signature_radius)
+
+# tracking_modifiers folds in pilot fitting + skills, e.g. Tracking
+# Enhancer modules (with stacking penalty) and Trajectory Analysis.
+# For the canonical Nightmare fit (2x Tracking Enhancer II + Trajectory
+# Analysis L5) this is 1.374 * 1.25 = 1.7175. See NIGHTMARE.trackingModifier
+# in js/constants.js.
+
+[RANGE FORMULA]
+
+if distance_to_target <= optimal_range:
+    range_term = 0
+else:
+    range_term = (distance_to_target - optimal_range) / falloff_range
+
+[HIT CHANCE FORMULA]
+
+hit_chance = 0.5 ** (tracking_term**2 + range_term**2)
+
+
+
+[INPUTS]
+
+# Weapon stats
+turret_damage_multiplier      # e.g. 3.6
+rate_of_fire                  # seconds per cycle
+tracking_speed                # rad/s (already includes skills/modules)
+optimal_range                 # meters
+falloff_range                 # meters
+
+# Ammo (crystals)
+em_damage
+thermal_damage
+
+# Target / geometry
+distance_to_target            # meters
+angular_velocity              # rad/s (transversal / range)
+target_signature_radius       # meters
+
+# Attacker
+turret_signature_resolution   # meters (e.g. 400 for large)
+
+# Modifiers (multiplicative)
+damage_modifiers              # heat, skills, hull bonus etc (e.g. 1.25)
+tracking_modifiers            # e.g. tracking computers
+
+
+
+[SCIMITAR REMOTE SHIELD BOOSTING]
+
+distance_to_target = distance to target
+remote_shield_booster_optimal = optimal_range = 27km
+remote_shield_booster_falloff = falloff_range = 40.5km
+
+if distance_to_target <= remote_shield_booster_optimal:
+    range_mult = 1.0
+else:
+    x = (distance_to_target - remote_shield_booster_optimal) / remote_shield_booster_falloff
+    range_mult = 0.5^(x^2)
+
+where x =
+
+Distance	x	Multiplier
+d = opt	0	1.0
+d = opt + 0.5·fall	0.5	~0.84
+d = opt + 1·fall	1	0.5
+d = opt + 1.5·fall	1.5	~0.21
+d = opt + 2·fall	2	~0.0625
+
+remote_shield_booster_rep_amount = 334 hp
+remote_shield_booster_cycle_time = 7.2 s
+
+rep_effective = remote_shield_booster_rep_amount * range_mult
+
+HPS_effective = rep_effective / remote_shield_booster_cycle_time
+
+Incoming reps are amplified by target resistances.
+
+For a damage profile vector D = [EM, TH, KI, EX] and resist vector R = [r_em, r_th, r_ki, r_ex]:
+
+effective_damage_fraction = D_em*(1 - r_em) + D_th*(1 - r_th) + D_ki*(1 - r_ki) + D_ex*(1 - r_ex)
+
+resist_multiplier = 1 / effective_damage_fraction
+
+EHP/s = HPS_effective * resist_multiplier

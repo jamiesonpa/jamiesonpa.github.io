@@ -37,6 +37,9 @@
         <button id="pause">Pause</button>
         <button id="restart">Restart</button>
       </div>
+      <div class="row">
+        <a href="analysis.html" class="hud-link" title="Open the batch sensitivity-analysis page in a new tab" target="_blank" rel="noopener">Sensitivity analysis &rarr;</a>
+      </div>
     </div>
 
     <div id="result-banner" class="hidden"></div>
@@ -44,148 +47,250 @@
     <div id="green-roster" class="roster-panel">
       <div class="roster-title green">Green Fleet</div>
       <div class="fleet-config">
-        <div class="cfg-label" title="Applies on next Restart">
-          Fleet size (restart)
-        </div>
-        <div class="cfg-row">
-          <label>ships</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="teamSize"
-            min="1"
-            max="200"
-            step="1"
-          />
-        </div>
-        <div
-          class="cfg-label"
-          title="Split this fleet into N subfleets at spawn. Each subfleet has its own leader, primary-target call, and lock progression."
-        >
-          Subfleets (restart)
-        </div>
-        <div class="cfg-row">
-          <label>count</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="subfleetCount"
-            min="1"
-            max="6"
-            step="1"
-          />
-        </div>
-        <div class="cfg-row cfg-checkbox">
-          <input
-            type="checkbox"
-            class="cfg-input"
-            id="green-unified-movement"
-            data-team="green"
-            data-key="unifiedMovement"
-          />
-          <label
-            for="green-unified-movement"
-            title="Subfleets fly together in formation, but each still calls and shoots its own primary"
-          >Move subfleets as one</label>
-        </div>
-        <div class="cfg-label">Reaction time (s)</div>
-        <div class="cfg-row">
-          <label>min</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="reactionMin"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-          <label>max</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="reactionMax"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-        </div>
-        <div class="cfg-label">Hardener reaction (s)</div>
-        <div class="cfg-row">
-          <label>min</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="hardenerReactionMin"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-          <label>max</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="hardenerReactionMax"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-        </div>
-        <div class="cfg-label" title="Time from hardener activation until overheat">
-          Overheat reaction (s)
-        </div>
-        <div class="cfg-row">
-          <label>min</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="overheatReactionMin"
-            min="0"
-            max="60"
-            step="0.1"
-          />
-          <label>max</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="overheatReactionMax"
-            min="0"
-            max="60"
-            step="0.1"
-          />
-        </div>
-        <div class="cfg-label" title="Applies on next Restart">
-          Damage modifier (restart)
-        </div>
-        <div class="cfg-row">
-          <label>mean</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="damageMean"
-            min="0"
-            max="20"
-            step="0.1"
-          />
-          <label>&sigma;</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="green"
-            data-key="damageSigma"
-            min="0"
-            max="20"
-            step="0.05"
-          />
-        </div>
+        <details class="cfg-section" id="cfg-green-fleet" open>
+          <summary title="Applies on next Restart">Fleet size (restart)</summary>
+          <div class="cfg-row">
+            <label>night</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="nightmareCount"
+              min="0"
+              max="200"
+              step="1"
+            />
+            <label>scim</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="scimitarCount"
+              min="0"
+              max="200"
+              step="1"
+            />
+          </div>
+        </details>
+        <details class="cfg-section" id="cfg-green-subfleets" open>
+          <summary
+            title="Split this fleet into N subfleets at spawn. Each subfleet has its own leader, primary-target call, and lock progression."
+          >Subfleets (restart)</summary>
+          <div class="cfg-row">
+            <label>count</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="subfleetCount"
+              min="1"
+              max="6"
+              step="1"
+            />
+          </div>
+          <div class="cfg-row cfg-checkbox">
+            <input
+              type="checkbox"
+              class="cfg-input"
+              id="green-unified-movement"
+              data-team="green"
+              data-key="unifiedMovement"
+            />
+            <label
+              for="green-unified-movement"
+              title="Subfleets fly together in formation, but each still calls and shoots its own primary"
+            >Move subfleets as one</label>
+          </div>
+        </details>
+        <details class="cfg-section" id="cfg-green-reactions" open>
+          <summary>Reactions (s)</summary>
+          <div class="cfg-sublabel">Primary call</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="reactionMin"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="reactionMax"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel">Hardener</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="hardenerReactionMin"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="hardenerReactionMax"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time from hardener activation until overheat">Overheat</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="overheatReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="overheatReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time from first being locked until 'broadcast for reps'">Broadcast for reps</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="broadcastReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="broadcastReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time for a scimitar to react to a friendly broadcast before locking">Logi reaction</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="logiReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="logiReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time on the same primary before swapping to a different target if it is still alive (e.g. being kept alive by enemy reps)">Target switch</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="targetSwitchReactionMin"
+              min="0"
+              max="600"
+              step="0.5"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="targetSwitchReactionMax"
+              min="0"
+              max="600"
+              step="0.5"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time from noticing the loaded crystal is wrong for the current target distance until actually swapping. The swap itself is instant; this is purely the pilot reaction.">Crystal swap</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="crystalReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="crystalReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+        </details>
+        <details class="cfg-section" id="cfg-green-damage" open>
+          <summary title="Applies on next Restart">Damage modifier (restart)</summary>
+          <div class="cfg-row">
+            <label>mean</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="damageMean"
+              min="0"
+              max="20"
+              step="0.1"
+            />
+            <label>&sigma;</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="damageSigma"
+              min="0"
+              max="20"
+              step="0.05"
+            />
+          </div>
+        </details>
       </div>
       <div id="green-violin" class="violin-panel"></div>
       <div class="roster-legend">
@@ -199,148 +304,256 @@
     <div id="red-roster" class="roster-panel">
       <div class="roster-title red">Red Fleet</div>
       <div class="fleet-config">
-        <div class="cfg-label" title="Applies on next Restart">
-          Fleet size (restart)
-        </div>
-        <div class="cfg-row">
-          <label>ships</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="teamSize"
-            min="1"
-            max="200"
-            step="1"
-          />
-        </div>
-        <div
-          class="cfg-label"
-          title="Split this fleet into N subfleets at spawn. Each subfleet has its own leader, primary-target call, and lock progression."
-        >
-          Subfleets (restart)
-        </div>
-        <div class="cfg-row">
-          <label>count</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="subfleetCount"
-            min="1"
-            max="6"
-            step="1"
-          />
-        </div>
-        <div class="cfg-row cfg-checkbox">
-          <input
-            type="checkbox"
-            class="cfg-input"
-            id="red-unified-movement"
-            data-team="red"
-            data-key="unifiedMovement"
-          />
-          <label
-            for="red-unified-movement"
-            title="Subfleets fly together in formation, but each still calls and shoots its own primary"
-          >Move subfleets as one</label>
-        </div>
-        <div class="cfg-label">Reaction time (s)</div>
-        <div class="cfg-row">
-          <label>min</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="reactionMin"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-          <label>max</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="reactionMax"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-        </div>
-        <div class="cfg-label">Hardener reaction (s)</div>
-        <div class="cfg-row">
-          <label>min</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="hardenerReactionMin"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-          <label>max</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="hardenerReactionMax"
-            min="0"
-            max="30"
-            step="0.1"
-          />
-        </div>
-        <div class="cfg-label" title="Time from hardener activation until overheat">
-          Overheat reaction (s)
-        </div>
-        <div class="cfg-row">
-          <label>min</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="overheatReactionMin"
-            min="0"
-            max="60"
-            step="0.1"
-          />
-          <label>max</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="overheatReactionMax"
-            min="0"
-            max="60"
-            step="0.1"
-          />
-        </div>
-        <div class="cfg-label" title="Applies on next Restart">
-          Damage modifier (restart)
-        </div>
-        <div class="cfg-row">
-          <label>mean</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="damageMean"
-            min="0"
-            max="20"
-            step="0.1"
-          />
-          <label>&sigma;</label>
-          <input
-            type="number"
-            class="cfg-input"
-            data-team="red"
-            data-key="damageSigma"
-            min="0"
-            max="20"
-            step="0.05"
-          />
-        </div>
+        <button
+          type="button"
+          id="btn-match-green-to-red"
+          class="btn-match-fleet"
+          title="Copy every setting from the green fleet to the red fleet (overwrites red). Reaction settings take effect on the next reaction roll; spawn-time settings (fleet size, subfleets, damage modifier) take effect on the next Restart."
+        >&larr; Match green fleet</button>
+        <details class="cfg-section" id="cfg-red-fleet" open>
+          <summary title="Applies on next Restart">Fleet size (restart)</summary>
+          <div class="cfg-row">
+            <label>night</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="nightmareCount"
+              min="0"
+              max="200"
+              step="1"
+            />
+            <label>scim</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="scimitarCount"
+              min="0"
+              max="200"
+              step="1"
+            />
+          </div>
+        </details>
+        <details class="cfg-section" id="cfg-red-subfleets" open>
+          <summary
+            title="Split this fleet into N subfleets at spawn. Each subfleet has its own leader, primary-target call, and lock progression."
+          >Subfleets (restart)</summary>
+          <div class="cfg-row">
+            <label>count</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="subfleetCount"
+              min="1"
+              max="6"
+              step="1"
+            />
+          </div>
+          <div class="cfg-row cfg-checkbox">
+            <input
+              type="checkbox"
+              class="cfg-input"
+              id="red-unified-movement"
+              data-team="red"
+              data-key="unifiedMovement"
+            />
+            <label
+              for="red-unified-movement"
+              title="Subfleets fly together in formation, but each still calls and shoots its own primary"
+            >Move subfleets as one</label>
+          </div>
+        </details>
+        <details class="cfg-section" id="cfg-red-reactions" open>
+          <summary>Reactions (s)</summary>
+          <div class="cfg-sublabel">Primary call</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="reactionMin"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="reactionMax"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel">Hardener</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="hardenerReactionMin"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="hardenerReactionMax"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time from hardener activation until overheat">Overheat</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="overheatReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="overheatReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time from first being locked until 'broadcast for reps'">Broadcast for reps</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="broadcastReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="broadcastReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time for a scimitar to react to a friendly broadcast before locking">Logi reaction</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="logiReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="logiReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time on the same primary before swapping to a different target if it is still alive (e.g. being kept alive by enemy reps)">Target switch</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="targetSwitchReactionMin"
+              min="0"
+              max="600"
+              step="0.5"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="targetSwitchReactionMax"
+              min="0"
+              max="600"
+              step="0.5"
+            />
+          </div>
+          <div class="cfg-sublabel" title="Time from noticing the loaded crystal is wrong for the current target distance until actually swapping. The swap itself is instant; this is purely the pilot reaction.">Crystal swap</div>
+          <div class="cfg-row">
+            <label>min</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="crystalReactionMin"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+            <label>max</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="crystalReactionMax"
+              min="0"
+              max="60"
+              step="0.1"
+            />
+          </div>
+        </details>
+        <details class="cfg-section" id="cfg-red-damage" open>
+          <summary title="Applies on next Restart">Damage modifier (restart)</summary>
+          <div class="cfg-row">
+            <label>mean</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="damageMean"
+              min="0"
+              max="20"
+              step="0.1"
+            />
+            <label>&sigma;</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="damageSigma"
+              min="0"
+              max="20"
+              step="0.05"
+            />
+          </div>
+        </details>
       </div>
       <div id="red-violin" class="violin-panel"></div>
       <div class="roster-legend">

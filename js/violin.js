@@ -31,7 +31,11 @@ function hexFromInt(n) {
 const DEFAULTS = {
   width: 184,
   height: 120,
-  marginLeft: 26,
+  // Left margin must be wide enough that the rotated "dmg mod" label
+  // (centered at x=8, roughly 9px wide after -90 rotation) doesn't collide
+  // with the right-anchored Y-axis tick numbers (rendered at marginLeft - 5).
+  // For typical 4-char ticks like "10.0" (~16px), 34 keeps a few px of gap.
+  marginLeft: 34,
   marginRight: 6,
   marginTop: 6,
   marginBottom: 16,

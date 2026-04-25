@@ -5,7 +5,7 @@ import { VIS, SIM } from "./constants.js";
 const Y_UP = new THREE.Vector3(0, 1, 0);
 const _velDir = new THREE.Vector3();
 
-// Pool of line segments used for momentary beam-flash visuals. Two shared
+// Pool of line segments used for momentary beam visuals. Two shared
 // materials (one per team) are swapped onto the recycled line at spawn time
 // so green ships fire green beams and red ships fire red beams.
 //
@@ -15,23 +15,46 @@ const _velDir = new THREE.Vector3();
 // lifetime instead of dangling in space at the firing instant. If either
 // endpoint dies mid-beam the beam is recycled immediately so it doesn't
 // hang on an invisible mesh.
+//
+// Pool accepts a `colors` object so we can reuse the same code for both
+// turret-flash beams (bright green/red) and rep beams (cool cyan/pink).
+// The opacity is also configurable so rep beams can be dimmer than turret
+// beams without having to fork the class.
+//
+// Optional `missOpacity` (only used by the turret pool) builds a second
+// pair of per-team materials at that opacity. spawn() picks them when
+// `extend !== 1` so miss beams render fainter than hit beams without
+// touching the rest of the BeamPool API. Pools that don't pass
+// `missOpacity` (e.g. the rep pool) just never enter that branch.
 class BeamPool {
-  constructor(scene, size = 800) {
+  constructor(scene, size, colors, opacity = 0.95, missOpacity = null) {
     this.scene = scene;
     this.pool = [];
     this.active = [];
     this.materials = {
       green: new THREE.LineBasicMaterial({
-        color: VIS.beamGreen,
+        color: colors.green,
         transparent: true,
-        opacity: 0.95,
+        opacity,
       }),
       red: new THREE.LineBasicMaterial({
-        color: VIS.beamRed,
+        color: colors.red,
         transparent: true,
-        opacity: 0.95,
+        opacity,
       }),
     };
+    if (missOpacity !== null) {
+      this.materials.missGreen = new THREE.LineBasicMaterial({
+        color: colors.green,
+        transparent: true,
+        opacity: missOpacity,
+      });
+      this.materials.missRed = new THREE.LineBasicMaterial({
+        color: colors.red,
+        transparent: true,
+        opacity: missOpacity,
+      });
+    }
     for (let i = 0; i < size; i++) {
       const geom = new THREE.BufferGeometry();
       geom.setAttribute(
@@ -54,33 +77,81 @@ class BeamPool {
     this.active.length = 0;
   }
 
-  // Write the current shooter/target positions into the line's vertex buffer.
-  _writeEndpoints(line, fromPos, toPos) {
+  // Write the line's vertex buffer. Endpoints are (fromPos, toPos) when
+  // extend == 1 (the default, used for hit beams). For miss beams the
+  // caller passes extend > 1, and the second endpoint becomes
+  // fromPos + extend * (toPos - fromPos) -- i.e. the beam continues past
+  // the target along the same direction, as if the photons had not
+  // intersected anything. Recomputed every frame in step() from current
+  // ship positions, so the miss line keeps extending past the target's
+  // current position even as both ships drift.
+  _writeEndpoints(line, fromPos, toPos, extend = 1) {
     const pos = line.geometry.attributes.position;
     pos.array[0] = fromPos.x;
     pos.array[1] = fromPos.y;
     pos.array[2] = fromPos.z;
-    pos.array[3] = toPos.x;
-    pos.array[4] = toPos.y;
-    pos.array[5] = toPos.z;
+    if (extend === 1) {
+      pos.array[3] = toPos.x;
+      pos.array[4] = toPos.y;
+      pos.array[5] = toPos.z;
+    } else {
+      pos.array[3] = fromPos.x + extend * (toPos.x - fromPos.x);
+      pos.array[4] = fromPos.y + extend * (toPos.y - fromPos.y);
+      pos.array[5] = fromPos.z + extend * (toPos.z - fromPos.z);
+    }
     pos.needsUpdate = true;
   }
 
   // `fromShip` and `toShip` are Ship objects; we keep references so step()
-  // can re-read their .position vectors each frame.
-  spawn(fromShip, toShip, lifetime, team) {
+  // can re-read their .position vectors each frame. `extend` is a length
+  // multiplier on the (to - from) vector applied when computing the second
+  // endpoint -- 1 (default) draws shooter -> target (a hit), > 1 draws a
+  // miss line that continues past the target.
+  spawn(fromShip, toShip, lifetime, team, extend = 1) {
     const line = this.pool.pop();
     if (!line) return;
-    line.material = this.materials[team] || this.materials.green;
+    // Miss beams (extend !== 1) use the dimmed per-team material if this
+    // pool was constructed with a missOpacity; otherwise fall back to the
+    // normal hit material (preserves rep-pool behaviour, which doesn't
+    // build miss variants and never gets called with extend !== 1).
+    const useMiss = extend !== 1 && this.materials.missGreen;
+    const matKey = useMiss
+      ? team === "green"
+        ? "missGreen"
+        : "missRed"
+      : team;
+    line.material = this.materials[matKey] || this.materials.green;
     line.visible = true;
-    this._writeEndpoints(line, fromShip.position, toShip.position);
+    this._writeEndpoints(line, fromShip.position, toShip.position, extend);
     this.active.push({
       line,
       life: lifetime,
       max: lifetime,
       from: fromShip,
       to: toShip,
+      extend,
     });
+  }
+
+  // Continuous-beam variant: if there is already an active beam from this
+  // shooter (regardless of target), refresh its lifetime + retarget instead
+  // of stacking a second beam. This is what scimitar reps want -- a single
+  // continuous "tractor beam" that follows the rep target as long as the
+  // scimitar is repping it, instead of one beam per cycle stacking on top
+  // of the previous (still-fading) one.
+  refreshOrSpawnByFromId(fromShip, toShip, lifetime, team) {
+    for (const a of this.active) {
+      if (a.from.id === fromShip.id) {
+        a.life = lifetime;
+        a.max = lifetime;
+        a.to = toShip;
+        a.extend = 1; // rep beams are always shooter -> target, never extended
+        a.line.material = this.materials[team] || this.materials.green;
+        this._writeEndpoints(a.line, fromShip.position, toShip.position);
+        return;
+      }
+    }
+    this.spawn(fromShip, toShip, lifetime, team);
   }
 
   // Decrement lifetimes; recycle expired or orphaned beams; otherwise
@@ -96,7 +167,93 @@ class BeamPool {
         this.active.splice(i, 1);
         continue;
       }
-      this._writeEndpoints(a.line, a.from.position, a.to.position);
+      this._writeEndpoints(a.line, a.from.position, a.to.position, a.extend);
+    }
+  }
+}
+
+// Pool of additive-blended sphere meshes used as one-shot death explosions.
+// Spawned by the renderer when a "death" hit event arrives. Each active
+// explosion expands its scale from ~0 to maxRadius while fading opacity
+// from 1 to 0 over `life` seconds, so the visual reads as a "pop" anchored
+// at the ship's last position.
+//
+// Each pool slot carries its own cloned material instance because per-
+// explosion opacity varies independently; sharing one material would make
+// the entire pool fade as one. The shared base sphere geometry is fine
+// because scale is per-mesh.
+class ExplosionPool {
+  constructor(scene, size) {
+    this.scene = scene;
+    this.pool = [];
+    this.active = [];
+    this.geom = new THREE.SphereGeometry(1, 16, 12);
+    for (let i = 0; i < size; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffb050,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(this.geom, mat);
+      mesh.visible = false;
+      mesh.frustumCulled = false;
+      mesh.scale.setScalar(0.01);
+      scene.add(mesh);
+      this.pool.push({ mesh, mat });
+    }
+  }
+
+  clear() {
+    for (const a of this.active) {
+      a.mesh.visible = false;
+      a.mesh.scale.setScalar(0.01);
+      this.pool.push({ mesh: a.mesh, mat: a.mat });
+    }
+    this.active.length = 0;
+  }
+
+  // Spawn one explosion at `position` with the given color, max radius, and
+  // total lifetime. Silently no-ops if the pool is exhausted (extremely
+  // unlikely at the configured size, but a safe degradation).
+  spawn(position, color, maxRadius, lifetime) {
+    const slot = this.pool.pop();
+    if (!slot) return;
+    slot.mat.color.setHex(color);
+    slot.mat.opacity = 1.0;
+    slot.mesh.position.copy(position);
+    slot.mesh.scale.setScalar(0.01);
+    slot.mesh.visible = true;
+    this.active.push({
+      mesh: slot.mesh,
+      mat: slot.mat,
+      life: lifetime,
+      max: lifetime,
+      maxRadius,
+    });
+  }
+
+  // Per-frame: advance scale + opacity for each active explosion, recycle
+  // any whose lifetime has expired.
+  step(dt) {
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      const a = this.active[i];
+      a.life -= dt;
+      if (a.life <= 0) {
+        a.mesh.visible = false;
+        a.mesh.scale.setScalar(0.01);
+        this.pool.push({ mesh: a.mesh, mat: a.mat });
+        this.active.splice(i, 1);
+        continue;
+      }
+      // Normalised progress 0 -> 1 across the explosion's lifetime.
+      const t = 1 - a.life / a.max;
+      // Ease-out scale so the explosion pops fast then settles, instead
+      // of growing linearly (looks more like a flash, less like a balloon).
+      const eased = 1 - (1 - t) * (1 - t);
+      a.mesh.scale.setScalar(0.01 + eased * a.maxRadius);
+      a.mat.opacity = 1 - t;
     }
   }
 }
@@ -167,6 +324,12 @@ export class Renderer {
       VIS.leaderRadius * 2.6,
       16
     );
+    // Scimitars use an octahedron so they read as visually distinct from
+    // the nightmare cones at any camera angle (cones can look identical
+    // when seen end-on; an octahedron has rotational symmetry around all
+    // three axes). Smaller than a nightmare pip to match the lore size
+    // difference (cruiser vs battleship).
+    this.scimitarGeom = new THREE.OctahedronGeometry(VIS.scimitarRadius, 0);
     this.ringGeom = new THREE.TorusGeometry(VIS.leaderRadius * 1.6, 60, 8, 32);
 
     this.shipMeshes = new Map(); // ship.id -> { mesh, ring? }
@@ -194,7 +357,29 @@ export class Renderer {
       this.primaryRingPool.push(m);
     }
 
-    this.beams = new BeamPool(this.scene);
+    // Two beam pools: turret-flash (bright, short-lived per laser shot) and
+    // logi rep beams (dim cyan/pink, lifetime = rep cycle so they read as
+    // continuous tractor beams instead of flashes). The rep pool is sized
+    // generously to handle several scimitars per side all repping at once
+    // without exhausting the pool.
+    this.beams = new BeamPool(
+      this.scene,
+      800,
+      { green: VIS.beamGreen, red: VIS.beamRed },
+      0.95,
+      VIS.missBeamOpacity
+    );
+    this.repBeams = new BeamPool(
+      this.scene,
+      120,
+      { green: VIS.repBeamGreen, red: VIS.repBeamRed },
+      0.55
+    );
+
+    // Death explosions. Pool size is well above plausible simultaneous
+    // deaths even in a 50v50 fight where one team is collapsing -- a few
+    // ships die per tick at most, and explosions are short-lived.
+    this.explosions = new ExplosionPool(this.scene, 64);
 
     window.addEventListener("resize", () => this._onResize());
   }
@@ -232,29 +417,49 @@ export class Renderer {
   }
 
   // Build / destroy ship meshes to match the battle's ship list.
+  //
+  // Geometry selection by ship type:
+  //   nightmare follower -> small cone (pipGeom)
+  //   nightmare leader   -> large cone (leaderGeom) + leader ring
+  //   scimitar  follower -> octahedron (scimitarGeom)
+  //   scimitar  leader   -> octahedron (scimitarGeom) + leader ring
+  //                         (no enlarged variant -- the ring alone is
+  //                          enough to call out a logi-led subfleet,
+  //                          which only happens if the subfleet has
+  //                          zero nightmares.)
+  // Color is the team color tinted toward the scimitar accent for logi.
   syncShips(battle) {
     const seen = new Set();
     for (const s of battle.ships) {
       seen.add(s.id);
       let entry = this.shipMeshes.get(s.id);
       if (!entry) {
-        const baseColor = s.team === "green" ? VIS.greenColor : VIS.redColor;
+        const isScimitar = s.shipType === "scimitar";
+        const baseColor = isScimitar
+          ? s.team === "green"
+            ? VIS.scimitarGreen
+            : VIS.scimitarRed
+          : s.team === "green"
+          ? VIS.greenColor
+          : VIS.redColor;
         const leaderTint = s.team === "green" ? VIS.leaderGreen : VIS.leaderRed;
         const isLeader = s.isLeader;
         const mat = new THREE.MeshStandardMaterial({
-          color: isLeader ? leaderTint : baseColor,
-          emissive: isLeader ? leaderTint : baseColor,
+          color: isLeader && !isScimitar ? leaderTint : baseColor,
+          emissive: isLeader && !isScimitar ? leaderTint : baseColor,
           emissiveIntensity: 0.6,
           roughness: 0.5,
           metalness: 0.1,
         });
-        const mesh = new THREE.Mesh(
-          isLeader ? this.leaderGeom : this.pipGeom,
-          mat
-        );
+        const geom = isScimitar
+          ? this.scimitarGeom
+          : isLeader
+          ? this.leaderGeom
+          : this.pipGeom;
+        const mesh = new THREE.Mesh(geom, mat);
         mesh.position.copy(s.position);
         this.scene.add(mesh);
-        entry = { mesh, mat, isLeader };
+        entry = { mesh, mat, isLeader, shipType: s.shipType };
         if (isLeader) {
           const ringMat = new THREE.MeshBasicMaterial({
             color: leaderTint,
@@ -274,15 +479,18 @@ export class Renderer {
       entry.mesh.position.copy(s.position);
       entry.mesh.visible = s.alive;
 
-      // Orient cone apex (local +Y) along velocity direction. If velocity is
-      // near zero (e.g. just spawned static), leave previous orientation.
+      // Orient cone apex (local +Y) along velocity direction. Octahedrons
+      // are rotationally symmetric so we still apply the rotation -- harmless
+      // and keeps the (purely cosmetic) "facing" stable as ships maneuver.
       if (s.velocity.lengthSq() > 1e-2) {
         _velDir.copy(s.velocity).normalize();
         entry.mesh.quaternion.setFromUnitVectors(Y_UP, _velDir);
       }
 
       // Promotion: a follower may have been promoted to leader mid-battle.
-      // Toggle the ring on if so.
+      // Toggle the ring on if so. We don't swap the mesh geometry here --
+      // a promoted scimitar keeps its octahedron, and a promoted nightmare
+      // follower keeps its small cone (the ring is the "leader" cue).
       if (s.isLeader && !entry.ring) {
         const tint = s.team === "green" ? VIS.leaderGreen : VIS.leaderRed;
         const ringMat = new THREE.MeshBasicMaterial({
@@ -295,8 +503,13 @@ export class Renderer {
         entry.mesh.add(ring);
         entry.ring = ring;
         entry.ringMat = ringMat;
-        entry.mat.color.setHex(tint);
-        entry.mat.emissive.setHex(tint);
+        // Don't repaint a promoted scimitar with the leader tint -- keep
+        // its scimitar accent so logi remain visually identifiable even
+        // when leading.
+        if (s.shipType !== "scimitar") {
+          entry.mat.color.setHex(tint);
+          entry.mat.emissive.setHex(tint);
+        }
       }
 
       // HP color: dim emissive as ship dies.
@@ -318,16 +531,70 @@ export class Renderer {
 
   // Drain the battle's hit events that we haven't shown yet, spawning beams.
   // We track the timestamp of the last consumed event per renderer instance.
+  //
+  // Two event kinds:
+  //   "fire" -> a turret laser shot. Misses are silent (bright beam pool
+  //             would be too noisy if we drew misses too); hits spawn a
+  //             short bright beam in `this.beams`.
+  //   "rep"  -> a scimitar rep cycle. Always drawn; routed through
+  //             refreshOrSpawnByFromId on `this.repBeams` so each scimitar
+  //             has at most one continuous rep beam at a time, with its
+  //             lifetime extended on each new cycle (so the visual reads
+  //             as a sustained tractor beam instead of a per-cycle flash).
   consumeHitEvents(battle) {
     if (this._lastEventT === undefined) this._lastEventT = -1;
     for (const ev of battle.hitEvents) {
       if (ev.t <= this._lastEventT) continue;
+      if (ev.kind === "death") {
+        // Death event: look up the ship by id (it stays in battle.ships
+        // even when alive=false, so its last position is still valid for
+        // anchoring the explosion). The mesh is hidden by syncShips on
+        // the same tick, so the explosion visually replaces the ship.
+        const ship = battle.ships.find((s) => s.id === ev.shipId);
+        if (!ship) continue;
+        const team = ev.team || ship.team;
+        const shipType = ev.shipType || ship.shipType;
+        const color =
+          team === "green" ? VIS.explosionGreen : VIS.explosionRed;
+        const radius =
+          VIS.explosionRadius[shipType] ?? VIS.explosionRadius.nightmare;
+        this.explosions.spawn(
+          ship.position,
+          color,
+          radius,
+          VIS.explosionDuration
+        );
+        continue;
+      }
       const from = battle.ships.find((s) => s.id === ev.fromId);
       const to = battle.ships.find((s) => s.id === ev.toId);
       if (!from || !to) continue;
-      // Only show hits as bright beams; misses are silent for clarity.
-      if (!ev.hit) continue;
-      this.beams.spawn(from, to, SIM.beamFlashDuration, from.team);
+      if (ev.kind === "rep") {
+        // Slightly longer than cycle time so the beam doesn't pop off for
+        // a frame between cycles if the next cycle event arrives a tick
+        // late; refresh-by-from collapses repeats.
+        this.repBeams.refreshOrSpawnByFromId(
+          from,
+          to,
+          SIM.repBeamDuration + 0.5,
+          from.team
+        );
+      } else {
+        // "fire" (default; legacy events without a `kind` field also fall
+        // through here for compatibility). Hits draw shooter -> target;
+        // misses draw the same beam in the same direction but extended
+        // VIS.missBeamExtend times the shooter->target distance, so the
+        // photons visually pass through the target's position and continue
+        // into space ("the laser missed and the light kept going").
+        const extend = ev.hit ? 1 : VIS.missBeamExtend;
+        this.beams.spawn(
+          from,
+          to,
+          SIM.beamFlashDuration,
+          from.team,
+          extend
+        );
+      }
     }
     this._lastEventT = battle.simTime;
   }
@@ -356,9 +623,12 @@ export class Renderer {
     }
   }
 
-  // Per render frame: update beam lifetimes, controls damping, render scene.
+  // Per render frame: update beam lifetimes (both pools), advance any
+  // active death explosions, controls damping, render scene.
   render(realDt) {
     this.beams.step(realDt);
+    this.repBeams.step(realDt);
+    this.explosions.step(realDt);
     this.controls.update();
     this.threeRenderer.render(this.scene, this.camera);
   }
@@ -372,6 +642,8 @@ export class Renderer {
     }
     this.shipMeshes.clear();
     this.beams.clear();
+    this.repBeams.clear();
+    this.explosions.clear();
     this._lastEventT = -1;
     for (const ring of this.primaryRingPool) ring.visible = false;
   }

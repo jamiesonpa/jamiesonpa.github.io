@@ -1,10 +1,11 @@
 import * as THREE from "three";
-import { NIGHTMARE, SIM, FLEET_CONFIG } from "./constants.js";
+import { SHIP_STATS, SIM, FLEET_CONFIG } from "./constants.js";
 
 const _tmpA = new THREE.Vector3();
 const _tmpB = new THREE.Vector3();
 const _tmpC = new THREE.Vector3();
 const _tmpD = new THREE.Vector3();
+const _tmpE = new THREE.Vector3();
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
 // Targeting note: per-ship target assignment lives in sim.js as part of the
@@ -12,7 +13,10 @@ const WORLD_UP = new THREE.Vector3(0, 1, 0);
 
 // --- Steering helpers -------------------------------------------------------
 // Linear "thrust toward desired velocity" model -- used by followers, who
-// need to accelerate / decelerate to chase a moving slot position.
+// need to accelerate / decelerate to chase a moving slot position. Top-speed
+// clamp uses the ship's own type stats so a Scimitar (1701 m/s) isn't
+// artificially throttled to the nightmare's 791 m/s -- in practice the
+// follower-on-leader controller pins them to the slower leader anyway.
 function steerTowards(ship, desiredVel, maxAccel, dt) {
   _tmpA.copy(desiredVel).sub(ship.velocity);
   const need = _tmpA.length();
@@ -23,10 +27,10 @@ function steerTowards(ship, desiredVel, maxAccel, dt) {
     _tmpA.multiplyScalar(cap / need);
     ship.velocity.add(_tmpA);
   }
-  // Clamp to AB speed.
+  const maxSp = SHIP_STATS[ship.shipType].abSpeed;
   const sp = ship.velocity.length();
-  if (sp > NIGHTMARE.abSpeed) {
-    ship.velocity.multiplyScalar(NIGHTMARE.abSpeed / sp);
+  if (sp > maxSp) {
+    ship.velocity.multiplyScalar(maxSp / sp);
   }
 }
 
@@ -109,84 +113,119 @@ function updateLeaderBasis(leader) {
 }
 
 // --- Leader steering --------------------------------------------------------
-// Heading-commitment model: a leader picks a heading and commits to it for
-// SIM.headingCommitTime seconds before re-evaluating, instead of chasing the
-// rotating line-of-sight every tick. Early re-evaluation fires if range goes
-// critically close or far. Each new commit alternates the perpendicular sign,
-// so the leader effectively zigzags but with a much longer dwell on each
-// heading. Per-leader jitter desynchronises the two teams.
+// Transversal-maximisation model. Each tick the leader builds a desired
+// AB-speed velocity vector that:
 //
-// State stored ad-hoc on the leader Ship instance (initialised lazily):
-//   committedHeading : THREE.Vector3   (unit vector, world-space)
-//   headingExpiry    : number          (simTime when commitment expires)
-//   headingFlip      : -1 | +1         (next perpendicular sign to use)
-function _recomputeLeaderHeading(leader, enemyLeader, simTime) {
-  _tmpA.copy(enemyLeader.position).sub(leader.position);
-  const range = _tmpA.length();
-  if (range < 1) {
-    // Degenerate; just commit to current forward.
-    if (!leader.committedHeading) {
-      leader.committedHeading = leader.basis.forward.clone();
-    }
-    leader.headingExpiry = simTime + SIM.headingCommitTime;
-    return;
-  }
-  const losDir = _tmpB.copy(_tmpA).divideScalar(range);
-
-  const perp = _tmpC.copy(losDir).cross(WORLD_UP);
-  if (perp.lengthSq() < 1e-6) perp.set(1, 0, 0);
-  else perp.normalize();
-
-  if (leader.headingFlip === undefined) leader.headingFlip = 1;
-  perp.multiplyScalar(leader.headingFlip);
-  leader.headingFlip = -leader.headingFlip;
-
-  // Radial weighting: only push closing/opening when out of the dead zone.
-  let radialSign = 0;
-  if (range > SIM.idealRange + SIM.idealRangeBand) radialSign = +1; // close
-  else if (range < SIM.minRange) radialSign = -1; // open
-  const radial = losDir.multiplyScalar(radialSign * 0.4);
-
-  const desired = perp.add(radial);
-  if (desired.lengthSq() < 1e-6) desired.set(1, 0, 0);
-  desired.normalize();
-
-  if (!leader.committedHeading) leader.committedHeading = new THREE.Vector3();
-  leader.committedHeading.copy(desired);
-
-  // Deterministic per-leader jitter so the two teams don't recommit in sync.
-  const jitter = ((leader.id * 0.6180339) % 1) * SIM.headingCommitJitter * 2 -
-    SIM.headingCommitJitter;
-  leader.headingExpiry = simTime + SIM.headingCommitTime + jitter;
-}
-
-// `engagementRef` is the enemy ship the leader uses to drive its heading
-// commitments and range thresholds. Was always the enemy team leader; with
-// subfleets each subfleet leader steers against its OWN primary call so
-// independent subfleets can pursue different enemy concentrations.
-function steerLeader(leader, engagementRef, simTime, dt) {
+//   1. Sets the LOS-radial component equal to the enemy reference's LOS-
+//      radial component, so the rate-of-change of range is zero (the
+//      leader and the engagement reference recede / approach at the same
+//      rate along the line of sight, holding range constant).
+//   2. If range > SIM.maxRange, adds a closing rate proportional to the
+//      excess on top of (1), so the leader pulls back into bound. The
+//      gain and the cap are tuned so that being just past 170 km adds
+//      only a slight inward bias (mostly perpendicular flight is
+//      preserved), while being far past it dedicates most of the speed
+//      budget to closing.
+//   3. Spends the remaining (Pythagorean) speed budget perpendicular to
+//      the LOS in the direction OPPOSITE the enemy's perpendicular
+//      velocity. This is the velocity choice that maximises
+//      |v_us_perp - v_enemy_perp| (= the transversal of the relative
+//      velocity, which is what the EVE turret hit formula uses to
+//      compute angular velocity / tracking term -- see Ship.computeHitChance
+//      in ship.js). When the enemy's perp velocity is ~0 (typically only
+//      at battle start), we fall back to a deterministic horizontal perp
+//      to LOS, with sign keyed off leader.id parity so the two teams
+//      pick opposite initial perp directions and immediately set up an
+//      orbital chase rather than flying parallel.
+//
+// By construction |desired| = AB speed, so steerByRotation will hold the
+// leader at AB speed throughout. The per-tick recompute is fine because
+// the slow leaderTurnAccel (40 m/s^2 -> ~2.9 deg/s at AB speed) provides
+// all the smoothing -- there is no need for an explicit heading-commit
+// timer or jitter to stop the leader from twitching every frame.
+//
+// `engagementRef` is the enemy ship the leader steers against. Was always
+// the enemy team leader; with subfleets each subfleet leader steers
+// against its OWN primary call so independent subfleets can pursue
+// different enemy concentrations.
+function steerLeader(leader, engagementRef, dt) {
   if (!engagementRef || !engagementRef.alive) {
     // No engagement reference: just keep current velocity / basis.
     updateLeaderBasis(leader);
     return;
   }
 
-  const range = leader.position.distanceTo(engagementRef.position);
-  const expired =
-    !leader.committedHeading ||
-    leader.headingExpiry === undefined ||
-    simTime >= leader.headingExpiry;
-  const tooClose = range < SIM.criticalCloseRange;
-  const tooFar = range > SIM.criticalFarRange;
+  const maxSp = SHIP_STATS[leader.shipType].abSpeed;
 
-  if (expired || tooClose || tooFar) {
-    _recomputeLeaderHeading(leader, engagementRef, simTime);
+  // _tmpA = enemy.pos - leader.pos. Used briefly for range, then reused
+  // as the desired-velocity scratch buffer below.
+  _tmpA.copy(engagementRef.position).sub(leader.position);
+  const range = _tmpA.length();
+  if (range < 1) {
+    // Degenerate stack-up; nothing meaningful to steer toward.
+    updateLeaderBasis(leader);
+    return;
   }
 
-  // Leaders maintain constant AB speed and steer by rotating their velocity
-  // vector (no stop-and-start when reversing direction on a new commit).
-  _tmpD.copy(leader.committedHeading).multiplyScalar(NIGHTMARE.abSpeed);
-  steerByRotation(leader, _tmpD, SIM.leaderTurnAccel, dt);
+  // _tmpB = unit LOS direction from leader to engagement reference.
+  const losDir = _tmpB.copy(_tmpA).divideScalar(range);
+
+  // Decompose the enemy's velocity into its LOS-radial scalar and its
+  // perpendicular vector component.
+  //   eRadialScalar > 0  =>  enemy moving away from leader along LOS
+  //   ePerp              =  enemy velocity minus its LOS-radial part
+  const eRadialScalar = engagementRef.velocity.dot(losDir);
+  _tmpC.copy(losDir).multiplyScalar(eRadialScalar);
+  const ePerp = _tmpD.copy(engagementRef.velocity).sub(_tmpC);
+  const ePerpMag = ePerp.length();
+
+  // Pick our LOS-radial component. Default = match enemy (hold range).
+  // If we're past maxRange, add a closing rate proportional to the excess
+  // (capped so we don't blow the entire speed budget on closing alone).
+  // 0.01 1/s gain: 10 km past gives +100 m/s closing, 50 km past gives
+  // +500 m/s closing -- enough to recover but still leaves a meaningful
+  // perpendicular budget unless we're catastrophically out of bound.
+  let usRadial = eRadialScalar;
+  if (range > SIM.maxRange) {
+    const excess = range - SIM.maxRange;
+    const closeRate = Math.min(maxSp * 0.7, excess * 0.01);
+    usRadial = eRadialScalar + closeRate;
+  }
+  // Clamp the radial so the perp budget stays well-defined even when the
+  // enemy is sprinting along LOS faster than we can match.
+  const radialCap = maxSp * 0.95;
+  if (usRadial > radialCap) usRadial = radialCap;
+  else if (usRadial < -radialCap) usRadial = -radialCap;
+
+  // Pythagorean perp budget so |desired| = maxSp exactly.
+  const perpBudget = Math.sqrt(Math.max(0, maxSp * maxSp - usRadial * usRadial));
+
+  // Choose the perpendicular direction. _tmpE = unit perp direction.
+  // Want |v_us_perp - v_enemy_perp| max -> v_us_perp opposite to ePerp.
+  if (ePerpMag > 1) {
+    _tmpE.copy(ePerp).divideScalar(-ePerpMag); // opposite to enemy perp
+  } else {
+    // Enemy perp ~ 0 (typically only at battle start). Fall back to a
+    // deterministic horizontal perp-to-LOS; flip sign by leader.id parity
+    // so the two teams pick opposite initial perp directions and start
+    // an orbital chase rather than translating in parallel.
+    _tmpE.copy(losDir).cross(WORLD_UP);
+    if (_tmpE.lengthSq() < 1e-6) {
+      _tmpE.set(1, 0, 0);
+    } else {
+      _tmpE.normalize();
+    }
+    if (leader.id % 2 === 1) _tmpE.multiplyScalar(-1);
+  }
+
+  // desired = usRadial * losDir + perpBudget * usPerpDir. Reuse _tmpA
+  // (no longer needed for the original LOS displacement).
+  _tmpA
+    .copy(losDir)
+    .multiplyScalar(usRadial)
+    .addScaledVector(_tmpE, perpBudget);
+
+  steerByRotation(leader, _tmpA, SIM.leaderTurnAccel, dt);
   updateLeaderBasis(leader);
 }
 
@@ -216,7 +255,10 @@ function steerFollower(follower, leader, dt) {
   const correction = err.multiplyScalar(k);
   const desired = correction.add(leader.velocity);
   const dlen = desired.length();
-  if (dlen > NIGHTMARE.abSpeed) desired.multiplyScalar(NIGHTMARE.abSpeed / dlen);
+  // Cap at this follower's own AB speed -- scimitars (1701 m/s) can chase
+  // their slot more aggressively than nightmares (791 m/s) can.
+  const maxSp = SHIP_STATS[follower.shipType].abSpeed;
+  if (dlen > maxSp) desired.multiplyScalar(maxSp / dlen);
 
   steerTowards(follower, desired, SIM.followerTurnAccel, dt);
   // Followers inherit the leader's basis for any consumers that care.
@@ -233,8 +275,8 @@ function steerFollower(follower, leader, dt) {
 //     concentrations. Each follower chases its own subfleet's leader.
 //
 //   unified: the first subfleet with a live leader is the team's "movement
-//     leader" -- it does the heading commitment and steering. Every other
-//     subfleet leader copies its velocity and basis each tick, so all
+//     leader" -- it does the per-tick transversal-maximisation steering.
+//     Every other subfleet leader copies its velocity and basis each tick, so all
 //     subfleets translate in lockstep. Targeting / locking / firing remain
 //     per-subfleet (each subfleet still picks its own independent primary
 //     and shoots that target). Followers always chase their own subfleet
@@ -244,7 +286,7 @@ function steerFollower(follower, leader, dt) {
 // Subfleets with a null leader (extinct) or null primary are skipped
 // harmlessly in both modes.
 export function updateAI(battle, dt) {
-  const { ships, subfleets, simTime } = battle;
+  const { ships, subfleets } = battle;
   // Steer leaders first so followers see the new basis.
   for (const team of ["green", "red"]) {
     const unified = !!FLEET_CONFIG[team].unifiedMovement;
@@ -261,15 +303,10 @@ export function updateAI(battle, dt) {
       }
       if (!movementLeaderSub) continue; // entire team gone
       // Steer the movement leader against its own primary call.
-      steerLeader(
-        movementLeaderSub.leader,
-        movementLeaderSub.primary,
-        simTime,
-        dt
-      );
+      steerLeader(movementLeaderSub.leader, movementLeaderSub.primary, dt);
       // Every other subfleet leader mirrors velocity + basis. We avoid
-      // calling steerLeader on them so they don't do their own heading
-      // commits / random jitter that would split the team back apart.
+      // calling steerLeader on them so they don't do their own per-tick
+      // transversal solve and split the team back apart.
       const refLeader = movementLeaderSub.leader;
       for (const sub of subfleets[team]) {
         if (sub === movementLeaderSub) continue;
@@ -284,7 +321,7 @@ export function updateAI(battle, dt) {
       for (const sub of subfleets[team]) {
         const leader = sub.leader;
         if (!leader || !leader.alive) continue;
-        steerLeader(leader, sub.primary, simTime, dt);
+        steerLeader(leader, sub.primary, dt);
       }
     }
   }
