@@ -196,6 +196,25 @@ select:hover {
   outline: none;
   border-color: rgba(255, 208, 0, 0.5);
 }
+/* Boolean toggle rows: the checkbox sits at its native size next to a
+   wider, left-aligned text label (no fixed-width right-aligned label like
+   the numeric "min/max" rows). The general .cfg-input width is overridden
+   so the checkbox isn't stretched into a giant box. */
+.cfg-row.cfg-checkbox {
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+.cfg-row.cfg-checkbox .cfg-input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+.cfg-row.cfg-checkbox label {
+  width: auto;
+  text-align: left;
+  cursor: pointer;
+  opacity: 0.85;
+}
 
 /* Per-fleet violin plot of the surviving ships' damage modifiers. Sits
    between the fleet config block and the legend; takes a fixed slice of

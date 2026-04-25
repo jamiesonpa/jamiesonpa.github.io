@@ -127,6 +127,14 @@ export const FLEET_CONFIG = {
     // as evenly as possible across them. Clamped to <= teamSize at spawn.
     // Applied on Restart.
     subfleetCount: 1,
+    // When true, all subfleets in this fleet move as one coordinated body:
+    // the first subfleet's leader is the team movement leader (it does the
+    // heading commitment / steering), and every other subfleet leader
+    // mirrors its velocity and basis each tick. Targeting / locking /
+    // firing remain per-subfleet (each subfleet still calls its own
+    // independent primary), so subfleets shoot multiple primaries
+    // simultaneously while flying in formation. Live toggle, no restart.
+    unifiedMovement: false,
     reactionMin: 0.0, // seconds; lower bound of uniform reaction roll
     reactionMax: 1.0, // seconds; upper bound of uniform reaction roll
     // Per-ship hardener-on reaction. Counted from the moment THIS ship is
@@ -150,6 +158,7 @@ export const FLEET_CONFIG = {
   red: {
     teamSize: 50,
     subfleetCount: 1,
+    unifiedMovement: false,
     reactionMin: 0.0,
     reactionMax: 1.0,
     hardenerReactionMin: 0.5,

@@ -197,9 +197,20 @@ function bindFleetConfigInputs() {
     const key = input.dataset.key;
     if (!FLEET_CONFIG[team] || !(key in FLEET_CONFIG[team])) continue;
 
-    input.value = FLEET_CONFIG[team][key];
+    const isCheckbox = input.type === "checkbox";
+    if (isCheckbox) {
+      input.checked = !!FLEET_CONFIG[team][key];
+    } else {
+      input.value = FLEET_CONFIG[team][key];
+    }
 
     input.addEventListener("change", () => {
+      // Boolean checkbox path: just store raw checked state and bail out
+      // before the numeric parsing / min-max coupling logic below.
+      if (isCheckbox) {
+        FLEET_CONFIG[team][key] = !!input.checked;
+        return;
+      }
       const intSpec = INTEGER_KEYS[key];
       let v;
       if (intSpec) {

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { NIGHTMARE, SIM } from "./constants.js";
+import { NIGHTMARE, SIM, FLEET_CONFIG } from "./constants.js";
 
 const _tmpA = new THREE.Vector3();
 const _tmpB = new THREE.Vector3();
@@ -226,18 +226,66 @@ function steerFollower(follower, leader, dt) {
 }
 
 // --- Top-level driver -------------------------------------------------------
-// Subfleet-aware. Each subfleet's leader steers against its own primary
-// target (independent engagement reference per subfleet); each follower
-// chases its own subfleet's leader. Subfleets with a null leader (extinct)
-// or null primary (no enemies left in range) are skipped harmlessly.
+// Subfleet-aware. Two modes per team based on FLEET_CONFIG[team].unifiedMovement:
+//
+//   independent (default): each subfleet's leader steers against its own
+//     primary target. Subfleets diverge to pursue different enemy
+//     concentrations. Each follower chases its own subfleet's leader.
+//
+//   unified: the first subfleet with a live leader is the team's "movement
+//     leader" -- it does the heading commitment and steering. Every other
+//     subfleet leader copies its velocity and basis each tick, so all
+//     subfleets translate in lockstep. Targeting / locking / firing remain
+//     per-subfleet (each subfleet still picks its own independent primary
+//     and shoots that target). Followers always chase their own subfleet
+//     leader regardless of mode -- the formation slots are valid because
+//     the basis is now identical across mirrored leaders.
+//
+// Subfleets with a null leader (extinct) or null primary are skipped
+// harmlessly in both modes.
 export function updateAI(battle, dt) {
   const { ships, subfleets, simTime } = battle;
   // Steer leaders first so followers see the new basis.
   for (const team of ["green", "red"]) {
-    for (const sub of subfleets[team]) {
-      const leader = sub.leader;
-      if (!leader || !leader.alive) continue;
-      steerLeader(leader, sub.primary, simTime, dt);
+    const unified = !!FLEET_CONFIG[team].unifiedMovement;
+    if (unified) {
+      // Find the first subfleet with a live leader; it acts as the team's
+      // movement reference. If the original subfleet 0 is wiped, we promote
+      // the next surviving subfleet's leader into that role automatically.
+      let movementLeaderSub = null;
+      for (const sub of subfleets[team]) {
+        if (sub.leader && sub.leader.alive) {
+          movementLeaderSub = sub;
+          break;
+        }
+      }
+      if (!movementLeaderSub) continue; // entire team gone
+      // Steer the movement leader against its own primary call.
+      steerLeader(
+        movementLeaderSub.leader,
+        movementLeaderSub.primary,
+        simTime,
+        dt
+      );
+      // Every other subfleet leader mirrors velocity + basis. We avoid
+      // calling steerLeader on them so they don't do their own heading
+      // commits / random jitter that would split the team back apart.
+      const refLeader = movementLeaderSub.leader;
+      for (const sub of subfleets[team]) {
+        if (sub === movementLeaderSub) continue;
+        const l = sub.leader;
+        if (!l || !l.alive) continue;
+        l.velocity.copy(refLeader.velocity);
+        l.basis.forward.copy(refLeader.basis.forward);
+        l.basis.right.copy(refLeader.basis.right);
+        l.basis.up.copy(refLeader.basis.up);
+      }
+    } else {
+      for (const sub of subfleets[team]) {
+        const leader = sub.leader;
+        if (!leader || !leader.alive) continue;
+        steerLeader(leader, sub.primary, simTime, dt);
+      }
     }
   }
   for (const s of ships) {
