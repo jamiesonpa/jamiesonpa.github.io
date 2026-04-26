@@ -5,7 +5,7 @@ import { renderAllianceViolin } from "./violin_alliance.js";
 // into PROXY_BASE below. The local-storage override is just a convenience for
 // pointing at a different worker (e.g. a preview deploy) without editing
 // source.
-const DEFAULT_PROXY_BASE = "https://wb-violin-proxy.YOUR_ACCOUNT.workers.dev";
+const DEFAULT_PROXY_BASE = "https://wb-violin-proxy.jamiesonpa.workers.dev";
 function getProxyBase() {
   try {
     const v = window.localStorage.getItem("wb_proxy_base");
