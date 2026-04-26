@@ -1,4 +1,4 @@
-import { renderAllianceViolin } from "./violin_alliance.js";
+import { renderAllianceViolin } from "./violin_alliance.js?v=2";
 
 // IMPORTANT: after deploying tools/cors-worker/ via `wrangler deploy`, paste
 // the URL Cloudflare prints (e.g. https://wb-violin-proxy.<account>.workers.dev)
