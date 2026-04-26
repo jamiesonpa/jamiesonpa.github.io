@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Damage Violin Analyzer - jamiesonpa</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="analyzer-body">
+    <div class="analyzer-shell">
+      <header class="analyzer-header">
+        <div class="analyzer-title-row">
+          <h1>Damage Violin Analyzer</h1>
+          <a href="index.html" class="back-link">&larr; Back to home</a>
+        </div>
+        <p class="analyzer-blurb">
+          Paste a <a href="https://warbeacon.net/" target="_blank" rel="noopener">warbeacon</a>
+          battle report URL, the ship type you want to analyze, and one
+          alliance from the side you want to analyze. The page fetches the
+          report's JSON, sums per-pilot damage from each killmail's
+          attacker list, and renders a violin plot of damage by alliance,
+          highlighting top and bottom outliers.
+        </p>
+      </header>
+
+      <section class="analyzer-form">
+        <div class="form-row">
+          <label for="inp-url">Warbeacon URL</label>
+          <input
+            id="inp-url"
+            type="text"
+            spellcheck="false"
+            placeholder="https://warbeacon.net/br/report/619bfdf4-e05d-444d-bc3f-f10242297b0d#damage"
+          />
+        </div>
+        <div class="form-row two-col">
+          <div class="form-cell">
+            <label for="inp-ship">Ship type</label>
+            <input
+              id="inp-ship"
+              type="text"
+              spellcheck="false"
+              placeholder="Nightmare"
+            />
+          </div>
+          <div class="form-cell">
+            <label for="inp-alliance">Alliance (any one on the side to analyze)</label>
+            <input
+              id="inp-alliance"
+              type="text"
+              spellcheck="false"
+              placeholder="Shadow Cartel"
+            />
+          </div>
+        </div>
+        <div class="form-row form-actions">
+          <button id="btn-analyze" class="primary" type="button">Analyze</button>
+          <button id="btn-download" type="button" disabled>Download SVG</button>
+          <span id="status-text" class="status-text">Ready.</span>
+        </div>
+      </section>
+
+      <section class="analyzer-chart-section">
+        <div id="chart" class="analyzer-chart"></div>
+        <p id="chart-footnote" class="analyzer-footnote"></p>
+      </section>
+    </div>
+
+    <script type="module" src="./js/analyzer.js"></script>
+  </body>
+</html>

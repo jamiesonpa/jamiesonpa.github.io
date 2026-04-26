@@ -1,0 +1,8 @@
+name = "wb-violin-proxy"
+main = "worker.js"
+compatibility_date = "2026-04-26"
+
+# Workers Free tier: 100,000 requests/day. Plenty for personal use.
+# After `wrangler deploy`, Cloudflare prints a URL like
+#   https://wb-violin-proxy.<your-subdomain>.workers.dev
+# Paste that URL into DEFAULT_PROXY_BASE in js/analyzer.js.
