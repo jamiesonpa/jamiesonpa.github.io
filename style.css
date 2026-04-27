@@ -266,6 +266,15 @@ select:hover {
   cursor: pointer;
   opacity: 0.85;
 }
+/* Numeric rows that need a longer-than-22px label (e.g. "survivor" for the
+   merge-subfleets threshold). Left-aligns the label and lets it size to
+   its text so it stops overlapping the adjacent input. The input keeps
+   its standard 52px width via the base .cfg-input rule. */
+.cfg-row.cfg-wide-label label {
+  width: auto;
+  text-align: left;
+  padding-right: 4px;
+}
 
 /* Per-fleet violin plot of the surviving ships' damage modifiers. Sits
    between the fleet config block and the legend; takes a fixed slice of

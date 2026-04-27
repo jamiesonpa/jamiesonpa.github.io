@@ -394,6 +394,20 @@ export class Battle {
     }
 
     this.subfleetsMerged[team] = true;
+
+    // One-shot diagnostic so the user can verify in DevTools that the
+    // collapse fired and at what threshold. Logged exactly once per team
+    // per battle (gated by the subfleetsMerged latch above) so it can't
+    // spam the console.
+    if (typeof console !== "undefined" && console.log) {
+      console.log(
+        `[subfleet-merge] team=${team} simTime=${this.simTime.toFixed(1)}s ` +
+          `alive=${aliveTotal}/${spawnTotal} ` +
+          `(${((aliveTotal / spawnTotal) * 100).toFixed(0)}% < ` +
+          `${(proportion * 100).toFixed(0)}% threshold) ` +
+          `keeperSubfleetId=${keeperId} absorbed=${absorbed.length}`
+      );
+    }
   }
 
   // The subfleet leader's call: nearest enemy NIGHTMARE (across ALL enemy
