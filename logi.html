@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Logi Optimization Analysis - Nightmare Fleet Battle Simulator</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body class="analysis-body">
+    <div class="analysis-shell">
+      <header class="analysis-header">
+        <div class="analysis-title-row">
+          <h1>Logi Optimization Analysis</h1>
+          <div class="header-links">
+            <a href="analysis.html" class="back-link">Sensitivity analysis</a>
+            <a href="simulator.html" class="back-link">&larr; Back to live simulator</a>
+          </div>
+        </div>
+        <p class="analysis-blurb">
+          Sweep the <span class="green">green</span> fleet's Scimitar count
+          by &plusmn; a list of deltas around a base, while holding the
+          <span class="red">red</span> fleet at a single fixed setting. For
+          each green Nightmare count you specify, this page runs N battles
+          per Scimitar setting and plots the mean
+          <em>ships ahead at battle end</em>
+          (green&nbsp;alive&nbsp;&minus;&nbsp;red&nbsp;alive) vs. green's
+          Scimitar count. Use it to find the logi sweet spot where adding
+          more Scimitars stops paying for itself in extra surviving DPS.
+        </p>
+      </header>
+
+      <section class="analysis-controls">
+        <div class="ctrl-group">
+          <h3>Red fleet (held fixed)</h3>
+          <div class="ctrl-row">
+            <label>Nightmares <input id="ctrl-red-nightmares" type="number" min="0" max="500" step="1" value="50" /></label>
+            <label>Scimitars <input id="ctrl-red-scimitars" type="number" min="0" max="100" step="1" value="5" /></label>
+            <label>Subfleets <input id="ctrl-red-subfleets" type="number" min="1" max="6" step="1" value="1" /></label>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <h3>Green fleet (swept)</h3>
+          <div class="ctrl-row">
+            <label class="wide" title="Comma-separated list of green nightmare counts. One plot per value.">Nightmare counts <input id="ctrl-green-nightmares" type="text" value="30, 50, 75, 100" /></label>
+          </div>
+          <div class="ctrl-row">
+            <label title="Center scimitar count; the deltas below are applied symmetrically around this value.">Base scimitars <input id="ctrl-green-base-scim" type="number" min="0" max="100" step="1" value="5" /></label>
+            <label>Subfleets <input id="ctrl-green-subfleets" type="number" min="1" max="6" step="1" value="1" /></label>
+          </div>
+          <div class="ctrl-row">
+            <label class="wide" title="Comma-separated &plusmn; deltas around the base. e.g. '2, 4, 6' yields {-6, -4, -2, 0, +2, +4, +6} relative to base. Negatives are clamped to 0.">Deltas (&plusmn;) <input id="ctrl-green-deltas" type="text" value="2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30" /></label>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <h3>Trial budget</h3>
+          <div class="ctrl-row">
+            <label title="Battles per scimitar setting per nightmare count. Higher = tighter error bars but proportionally longer total runtime.">Trials per setting <input id="ctrl-trials" type="number" min="1" max="500" step="1" value="30" /></label>
+            <label title="Sim-time cap per battle. Battles that haven't ended by this time are scored by HP-fraction remaining.">Sim-time cap (s) <input id="ctrl-simcap" type="number" min="60" max="7200" step="30" value="600" /></label>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <h3>Run</h3>
+          <div class="ctrl-row">
+            <button id="btn-run" class="primary">Run all sweeps</button>
+            <button id="btn-pause" disabled>Pause</button>
+            <button id="btn-cancel" disabled>Cancel</button>
+            <button id="btn-download" disabled>Download results (JSON)</button>
+          </div>
+          <div class="ctrl-row">
+            <span id="status-text">Ready.</span>
+          </div>
+          <div class="progress-outer"><div id="progress-bar" class="progress-inner"></div></div>
+          <div class="ctrl-row small">
+            <span>Estimated total battles: <span id="estimate-battles">-</span></span>
+            <span class="sep">|</span>
+            <span>Completed: <span id="completed-count">0</span></span>
+            <span class="sep">|</span>
+            <span>Elapsed: <span id="elapsed-time">0s</span></span>
+            <span class="sep">|</span>
+            <span>ETA: <span id="eta-time">-</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="overlay-section">
+        <h2>Overlay: all nightmare counts</h2>
+        <p class="section-blurb">
+          One series per green Nightmare count. Solid line + dot = mean
+          ships ahead at battle end; faded vertical bar = 95% CI. Lets
+          you compare the Scimitar sweet spot across different green
+          Nightmare-count regimes on a single axis.
+        </p>
+        <div id="overlay-plot"></div>
+        <div id="overlay-legend" class="overlay-legend"></div>
+      </section>
+
+      <section class="experiments-section">
+        <h2>Per-nightmare-count sweeps</h2>
+        <p class="section-blurb">
+          One card per green Nightmare count. x-axis = green Scimitar
+          count, y-axis = mean ships ahead (green&nbsp;&minus;&nbsp;red).
+          Dot = mean over N trials, vertical bar = 95% CI, faded
+          background dots = individual trial outcomes (jittered). The
+          dashed horizontal line at y = 0 is the &ldquo;parity&rdquo;
+          line.
+        </p>
+        <div id="experiment-grid"></div>
+      </section>
+    </div>
+
+    <script type="module" src="./js/logi.js"></script>
+  </body>
+</html>

@@ -509,6 +509,11 @@ select:hover {
   gap: 18px;
   margin-bottom: 6px;
 }
+.header-links {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+}
 .back-link {
   color: #9bbcff;
   text-decoration: none;
@@ -578,6 +583,25 @@ select:hover {
   padding: 2px 5px;
   font: inherit;
   font-size: 12px;
+}
+.ctrl-row input[type="text"] {
+  width: 280px;
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.25);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font: inherit;
+  font-size: 12px;
+}
+.ctrl-row label.wide {
+  flex: 1;
+  min-width: 320px;
+}
+.ctrl-row label.wide input[type="text"] {
+  flex: 1;
+  width: auto;
+  min-width: 240px;
 }
 .ctrl-row input[type="checkbox"] {
   cursor: pointer;
@@ -1052,4 +1076,46 @@ select:hover {
   font-size: 11px;
   color: #8e9ab0;
   line-height: 1.45;
+}
+
+/* --- Logi optimization page (logi.html) --------------------------------
+   Re-uses .analysis-body / .analysis-shell / .analysis-controls / etc.
+   from the sensitivity-analysis page. Adds an overlay plot + legend
+   block where every nightmare-count series is drawn on a single axis,
+   plus a few tweaks for that page's wider single plot. */
+.overlay-section {
+  margin: 14px 0 18px 0;
+}
+#overlay-plot {
+  background: rgba(20, 28, 42, 0.6);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 200px;
+}
+.overlay-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.overlay-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #cfd6e4;
+}
+.overlay-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.overlay-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(20, 28, 42, 0.85);
 }
