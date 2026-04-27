@@ -101,6 +101,31 @@
               title="Subfleets fly together in formation, but each still calls and shoots its own primary"
             >Move subfleets as one</label>
           </div>
+          <div class="cfg-row cfg-checkbox">
+            <input
+              type="checkbox"
+              class="cfg-input"
+              id="green-merge-subfleets"
+              data-team="green"
+              data-key="mergeSubfleetsAfterLosses"
+            />
+            <label
+              for="green-merge-subfleets"
+              title="Once this fleet's surviving ships drop below survivor% of its spawn-time count, fold every surviving subfleet into one target-calling subfleet."
+            >Merge subfleets after losses</label>
+          </div>
+          <div class="cfg-row">
+            <label title="Fraction of spawn-time ships at which the merge fires (0-1). 0.6 = merge once 60% or fewer of the original ships are alive.">survivor</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="green"
+              data-key="survivorProportion"
+              min="0.05"
+              max="1"
+              step="0.05"
+            />
+          </div>
         </details>
         <details class="cfg-section" id="cfg-green-reactions" open>
           <summary>Reactions (s)</summary>
@@ -363,6 +388,31 @@
               for="red-unified-movement"
               title="Subfleets fly together in formation, but each still calls and shoots its own primary"
             >Move subfleets as one</label>
+          </div>
+          <div class="cfg-row cfg-checkbox">
+            <input
+              type="checkbox"
+              class="cfg-input"
+              id="red-merge-subfleets"
+              data-team="red"
+              data-key="mergeSubfleetsAfterLosses"
+            />
+            <label
+              for="red-merge-subfleets"
+              title="Once this fleet's surviving ships drop below survivor% of its spawn-time count, fold every surviving subfleet into one target-calling subfleet."
+            >Merge subfleets after losses</label>
+          </div>
+          <div class="cfg-row">
+            <label title="Fraction of spawn-time ships at which the merge fires (0-1). 0.6 = merge once 60% or fewer of the original ships are alive.">survivor</label>
+            <input
+              type="number"
+              class="cfg-input"
+              data-team="red"
+              data-key="survivorProportion"
+              min="0.05"
+              max="1"
+              step="0.05"
+            />
           </div>
         </details>
         <details class="cfg-section" id="cfg-red-reactions" open>

@@ -343,6 +343,23 @@ export const FLEET_CONFIG = {
     // independent primary), so subfleets shoot multiple primaries
     // simultaneously while flying in formation. Live toggle, no restart.
     unifiedMovement: false,
+    // When true, all of this team's subfleets get folded into a single
+    // target-calling subfleet once the team has lost enough ships -- the
+    // collapse fires the first tick the surviving fraction (alive / spawn)
+    // across the team's non-empty subfleets drops below survivorProportion.
+    // After the merge there is exactly one primary call for the team again
+    // and absorbed ships fly slot offsets relative to the surviving
+    // subfleet's leader. No-op when subfleetCount <= 1. Live toggle: an
+    // un-merged team will merge as soon as the threshold is crossed even
+    // mid-battle; a team that has already merged stays merged regardless
+    // of subsequent toggle state. Default off so existing battles behave
+    // exactly as before.
+    mergeSubfleetsAfterLosses: false,
+    // Fractional survivor threshold for the merge above. 0.6 = "merge once
+    // 60% or fewer of the team's original ships are still alive". Compared
+    // against (alive ships across all subfleets) / (sum of subfleets'
+    // spawn-time counts). Clamped to (0, 1] at read time.
+    survivorProportion: 0.6,
     reactionMin: 0.0, // seconds; lower bound of uniform reaction roll
     reactionMax: 1.0, // seconds; upper bound of uniform reaction roll
     // Per-ship hardener-on reaction. Counted from the moment THIS ship is
@@ -402,6 +419,8 @@ export const FLEET_CONFIG = {
     scimitarCount: 5,
     subfleetCount: 1,
     unifiedMovement: false,
+    mergeSubfleetsAfterLosses: false,
+    survivorProportion: 0.6,
     reactionMin: 0.0,
     reactionMax: 1.0,
     hardenerReactionMin: 0.5,

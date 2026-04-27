@@ -17,7 +17,7 @@ export class Battle {
   constructor() {
     this.ships = [];
     // Per-team list of subfleets. Each entry is:
-    //   { id, leader, primary, primaryStartTime, primarySwapAt }
+    //   { id, leader, primary, primaryStartTime, primarySwapAt, originalCount }
     //     id                : index in the array; matches Ship.subfleetId
     //     leader            : Ship currently leading this subfleet (null if
     //                         extinct)
@@ -29,9 +29,20 @@ export class Battle {
     //                         its current primary if it's still alive (i.e.
     //                         the "target-switch reaction" has expired);
     //                         null when there is no primary
+    //     originalCount     : number of ships (nightmares + scimitars) that
+    //                         spawned into this subfleet. Constant after
+    //                         spawn; used by _maybeMergeSubfleets to compute
+    //                         the team-wide alive/spawn ratio against
+    //                         FLEET_CONFIG[team].survivorProportion.
     // Entries are never removed mid-battle so subfleetId stays a stable
     // index. A wiped-out subfleet keeps its slot with leader/primary = null.
     this.subfleets = { green: [], red: [] };
+    // Latches true the first time _maybeMergeSubfleets folds this team's
+    // subfleets together. The merge is irreversible (all surviving ships
+    // get reassigned to a single subfleetId), so once set we skip the
+    // per-tick threshold check entirely. Set per-team because each side
+    // has its own mergeSubfleetsAfterLosses toggle.
+    this.subfleetsMerged = { green: false, red: false };
     this.simTime = 0;
     this.over = false;
     this.winner = null;
@@ -134,6 +145,7 @@ export class Battle {
           primary: null,
           primaryStartTime: null,
           primarySwapAt: null,
+          originalCount: subfleetSize,
         });
 
         // Build a flat list of remaining (non-leader) ship types for this
@@ -259,6 +271,129 @@ export class Battle {
       );
     }
     sub.leader = candidate;
+  }
+
+  // Optional "merge subfleets after losses" collapse, gated by
+  // FLEET_CONFIG[team].mergeSubfleetsAfterLosses. Once the team's surviving
+  // fraction across its non-empty subfleets drops below survivorProportion,
+  // every surviving ship is reassigned into a single subfleet -- the
+  // lowest-id subfleet that still has a live leader -- and every other
+  // subfleet on the team is emptied out (leader/primary nulled). After the
+  // merge the team has exactly one target-calling subfleet again, which is
+  // the user-facing intent: pick a single primary instead of fanning fire
+  // across the (now reduced) survivors.
+  //
+  // Cheap-out conditions (any of these skips the work):
+  //   - feature toggle off
+  //   - team already merged (latched in this.subfleetsMerged[team])
+  //   - team has 0 or 1 non-empty subfleets (nothing to merge)
+  //   - no spawn-time ships were recorded (defensive divide-by-zero guard)
+  //   - alive/spawn ratio still >= survivorProportion
+  //
+  // Called once per tick in tick() AFTER leader promotion (so the keeper's
+  // leader is already valid for the tick) and BEFORE _updatePrimaries (so
+  // the primary-call pass below sees one subfleet with one primary).
+  _maybeMergeSubfleets(team) {
+    const cfg = FLEET_CONFIG[team];
+    if (!cfg.mergeSubfleetsAfterLosses) return;
+    if (this.subfleetsMerged[team]) return;
+
+    const subs = this.subfleets[team];
+    // Count how many subfleets currently have any alive ships, and tally
+    // the team-wide alive count + spawn-time count in the same pass.
+    let nonEmptyCount = 0;
+    let aliveTotal = 0;
+    let spawnTotal = 0;
+    const aliveBySub = new Array(subs.length).fill(0);
+    for (const s of this.ships) {
+      if (!s.alive) continue;
+      if (s.team !== team) continue;
+      aliveBySub[s.subfleetId]++;
+    }
+    for (let i = 0; i < subs.length; i++) {
+      spawnTotal += subs[i].originalCount || 0;
+      if (aliveBySub[i] > 0) nonEmptyCount++;
+      aliveTotal += aliveBySub[i];
+    }
+    if (nonEmptyCount <= 1) return;
+    if (spawnTotal <= 0) return;
+
+    const proportion = Math.min(1, Math.max(0, cfg.survivorProportion));
+    if (aliveTotal / spawnTotal >= proportion) return;
+
+    // Pick the keeper: lowest-id subfleet that has a live leader. If none
+    // do (e.g. every leader just died this tick), fall back to lowest-id
+    // subfleet with any alive members; _maybePromoteLeader will be called
+    // for it below to install a leader before we re-anchor followers.
+    let keeperId = -1;
+    for (let i = 0; i < subs.length; i++) {
+      if (subs[i].leader && subs[i].leader.alive) {
+        keeperId = i;
+        break;
+      }
+    }
+    if (keeperId === -1) {
+      for (let i = 0; i < subs.length; i++) {
+        if (aliveBySub[i] > 0) {
+          keeperId = i;
+          break;
+        }
+      }
+    }
+    if (keeperId === -1) return; // entire team gone; nothing to merge
+
+    // Reassign every alive ship from non-keeper subfleets onto the keeper.
+    // We collect them first so we can demote any absorbed leaders and
+    // re-anchor their slot offsets in a single pass once the keeper's
+    // leader is final.
+    const absorbed = [];
+    for (const s of this.ships) {
+      if (!s.alive) continue;
+      if (s.team !== team) continue;
+      if (s.subfleetId === keeperId) continue;
+      absorbed.push(s);
+      s.subfleetId = keeperId;
+    }
+
+    // Empty out every non-keeper subfleet's bookkeeping so render / AI /
+    // primary-call code stops iterating their stale leader+primary refs.
+    for (let i = 0; i < subs.length; i++) {
+      if (i === keeperId) continue;
+      const sub = subs[i];
+      sub.leader = null;
+      sub.primary = null;
+      sub.primaryStartTime = null;
+      sub.primarySwapAt = null;
+    }
+
+    // Make sure the keeper has a leader. If the keeper's existing leader
+    // is alive this is a no-op; otherwise _maybePromoteLeader picks a new
+    // one from the keeper's now-expanded membership (which already
+    // includes the absorbed ships' subfleetId rewrite above).
+    this._maybePromoteLeader(team, keeperId);
+    const keeperLeader = subs[keeperId].leader;
+
+    // Re-anchor absorbed ships' slot offsets relative to the keeper
+    // leader's CURRENT basis, the same way _maybePromoteLeader re-anchors
+    // surviving subfleet members on a leader change. Without this every
+    // absorbed ship would suddenly target whatever slotOffset they had
+    // relative to their old (now-defunct) subfleet leader and either
+    // teleport-snap or fly toward stale formation slots. Skip if there's
+    // no keeper leader (degenerate; merge is harmless anyway).
+    if (keeperLeader && keeperLeader.alive) {
+      for (const s of absorbed) {
+        if (s === keeperLeader) continue;
+        if (s.isLeader) s.isLeader = false;
+        const rel = s.position.clone().sub(keeperLeader.position);
+        s.slotOffset = new THREE.Vector3(
+          rel.dot(keeperLeader.basis.right),
+          rel.dot(keeperLeader.basis.up),
+          rel.dot(keeperLeader.basis.forward)
+        );
+      }
+    }
+
+    this.subfleetsMerged[team] = true;
   }
 
   // The subfleet leader's call: nearest enemy NIGHTMARE (across ALL enemy
@@ -869,6 +1004,13 @@ export class Battle {
       for (const sub of this.subfleets[team]) {
         this._maybePromoteLeader(team, sub.id);
       }
+    }
+    // Optional post-promotion subfleet collapse: if losses have driven
+    // the team below survivorProportion and the user toggled the merge
+    // on, fold every surviving ship into one subfleet so the next
+    // _updatePrimaries pass calls a single primary again.
+    for (const team of ["green", "red"]) {
+      this._maybeMergeSubfleets(team);
     }
     this._updatePrimaries();
     this._updateLocks(dt);

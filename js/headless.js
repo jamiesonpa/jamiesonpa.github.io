@@ -29,6 +29,8 @@ const KEYS = [
   "scimitarCount",
   "subfleetCount",
   "unifiedMovement",
+  "mergeSubfleetsAfterLosses",
+  "survivorProportion",
   "reactionMin",
   "reactionMax",
   "hardenerReactionMin",
