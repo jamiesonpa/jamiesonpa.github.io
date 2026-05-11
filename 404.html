@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 — Pierce Jamieson, Ph.D.</title>
+  <link rel="icon" type="image/png" href="/assets/images/pierce_image1.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/custom.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+            display: ['"Share Tech Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+  <canvas id="molecule-bg" aria-hidden="true"></canvas>
+
+  <div class="content-layer max-w-xl mx-auto px-6 text-center py-20">
+    <div class="font-mono text-slate-400 text-xs tracking-[0.35em]">[ 404 / NO_SIGNAL ]</div>
+    <h1 class="mt-4 text-3xl sm:text-4xl font-medium leading-tight">
+      <span class="text-slate-500">$ ls /requested_page</span><br/>
+      <span class="mono-accent cursor-blink">no such file or directory</span>
+    </h1>
+    <p class="mt-5 text-slate-400 leading-relaxed text-sm">
+      The page you were looking for didn't form a stable product. Try one of these instead.
+    </p>
+    <div class="mt-7 flex flex-wrap justify-center gap-3">
+      <a href="/" class="btn btn-primary">Home</a>
+      <a href="/research.html" class="btn btn-ghost">Research</a>
+      <a href="/tutoring.html" class="btn btn-ghost">Tutoring</a>
+    </div>
+  </div>
+
+  <script src="/assets/js/effects.js"></script>
+</body>
+</html>

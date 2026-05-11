@@ -1,0 +1,522 @@
+/* =========================================================
+   Pierce Jamieson, Ph.D. - terminal / EVE-Online styling
+   Companion to Tailwind CSS (loaded via CDN in each page).
+   ========================================================= */
+
+:root {
+  --bg-0: #07070a;
+  --bg-1: #0b0b0e;
+  --bg-2: #131318;
+  --ink: #d9dce0;
+  --ink-dim: #8a8e95;
+  --ink-faint: #4a4d54;
+  --line: rgba(217, 220, 224, 0.10);
+  --line-bright: rgba(217, 220, 224, 0.22);
+  --glass: rgba(217, 220, 224, 0.018);
+  --glass-strong: rgba(15, 15, 19, 0.7);
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #000;
+}
+
+body {
+  background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 70%, #000 100%);
+  color: var(--ink);
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 400;
+  font-feature-settings: 'liga' 0;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.005em;
+}
+
+/* Lighter weight throughout for a less-blocky, terminal feel. */
+h1, h2, h3, h4, h5, h6 {
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* Subtle CRT scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.18) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+
+/* ---------- Background canvas (atoms + bonds) ---------- */
+#molecule-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+.content-layer {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Glass / panel cards ---------- */
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 220ms ease, background 220ms ease;
+  position: relative;
+}
+
+.glass::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: -1px;
+  width: 10px; height: 10px;
+  border-top: 1px solid rgba(217, 220, 224, 0.45);
+  border-left: 1px solid rgba(217, 220, 224, 0.45);
+  pointer-events: none;
+}
+.glass::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; right: -1px;
+  width: 10px; height: 10px;
+  border-bottom: 1px solid rgba(217, 220, 224, 0.45);
+  border-right: 1px solid rgba(217, 220, 224, 0.45);
+  pointer-events: none;
+}
+
+.glass:hover {
+  border-color: var(--line-bright);
+  background: rgba(217, 220, 224, 0.025);
+}
+
+.glass-strong {
+  background: var(--glass-strong);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  position: relative;
+}
+.glass-strong::before,
+.glass-strong::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  pointer-events: none;
+}
+.glass-strong::before {
+  top: -1px; left: -1px;
+  border-top: 1px solid rgba(217, 220, 224, 0.55);
+  border-left: 1px solid rgba(217, 220, 224, 0.55);
+}
+.glass-strong::after {
+  bottom: -1px; right: -1px;
+  border-bottom: 1px solid rgba(217, 220, 224, 0.55);
+  border-right: 1px solid rgba(217, 220, 224, 0.55);
+}
+
+/* ---------- Bond-line link underline ---------- */
+.bond-link {
+  position: relative;
+  color: var(--ink);
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+.bond-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 280ms ease;
+}
+.bond-link:hover::before {
+  transform: scaleX(1);
+}
+
+/* ---------- Element tile (terminal-style) ---------- */
+.element-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 0.85rem;
+  overflow: hidden;
+  transition: transform 200ms ease, border-color 200ms ease, background 200ms ease;
+  cursor: default;
+}
+
+.element-tile::before,
+.element-tile::after {
+  content: '';
+  position: absolute;
+  width: 8px; height: 8px;
+  pointer-events: none;
+}
+.element-tile::before {
+  top: -1px; left: -1px;
+  border-top: 1px solid rgba(217, 220, 224, 0.45);
+  border-left: 1px solid rgba(217, 220, 224, 0.45);
+}
+.element-tile::after {
+  bottom: -1px; right: -1px;
+  border-bottom: 1px solid rgba(217, 220, 224, 0.45);
+  border-right: 1px solid rgba(217, 220, 224, 0.45);
+}
+
+.element-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-bright);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.element-tile .index {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.7rem;
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.12em;
+  font-family: inherit;
+}
+
+.element-tile .symbol {
+  font-family: 'Share Tech Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.element-tile .name {
+  font-size: 0.74rem;
+  color: var(--ink-dim);
+  margin-top: 0.25rem;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Portrait frame (terminal scan ring) ---------- */
+.petri {
+  position: relative;
+  width: clamp(180px, 28vw, 260px);
+  height: clamp(180px, 28vw, 260px);
+  border-radius: 50%;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid rgba(217, 220, 224, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(217, 220, 224, 0.06);
+}
+.petri::before {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  border: 1px dashed rgba(217, 220, 224, 0.22);
+  animation: ring-spin 28s linear infinite;
+}
+.petri::after {
+  content: '';
+  position: absolute;
+  inset: -22px;
+  border-radius: 50%;
+  border: 1px solid rgba(217, 220, 224, 0.08);
+  pointer-events: none;
+}
+.petri-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #07070a;
+  position: relative;
+}
+.petri-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(0.25) contrast(1.05);
+}
+.petri-inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(255, 255, 255, 0.035) 4px
+  );
+  pointer-events: none;
+}
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+
+/* ---------- Reveal on scroll ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 600ms ease, transform 600ms ease;
+}
+.reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem 1.1rem;
+  border-radius: 2px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  border: 1px solid var(--line);
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary {
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(217, 220, 224, 0.4);
+}
+.btn-primary:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--ink);
+  color: #fff;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-dim);
+}
+.btn-ghost:hover {
+  border-color: rgba(217, 220, 224, 0.4);
+  color: var(--ink);
+}
+.btn-terminal {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f3f5;
+  border-color: rgba(217, 220, 224, 0.55);
+}
+.btn-terminal::before {
+  content: '> ';
+  opacity: 0.6;
+}
+.btn-terminal:hover {
+  background: var(--ink);
+  color: #07070a;
+  border-color: var(--ink);
+}
+
+/* ---------- Section heading ---------- */
+.section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  font-family: inherit;
+  text-transform: uppercase;
+}
+.section-title::before {
+  content: '//';
+  color: var(--ink-faint);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+  font-weight: 500;
+  font-family: inherit;
+}
+.eyebrow::before {
+  content: '[ ';
+  color: var(--ink-faint);
+}
+.eyebrow::after {
+  content: ' ]';
+  color: var(--ink-faint);
+}
+
+/* Mono display accent — off-white, thinner CRT-style face. */
+.gradient-text,
+.mono-accent {
+  color: #f1f3f5;
+  font-family: 'Share Tech Mono', 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* Blinking terminal cursor */
+.cursor-blink::after {
+  content: '_';
+  color: var(--ink);
+  margin-left: 0.1em;
+  animation: blink 1.05s steps(2, start) infinite;
+}
+@keyframes blink {
+  to { visibility: hidden; }
+}
+
+/* ---------- Publication card ---------- */
+.pub-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem 1.25rem;
+  align-items: start;
+  padding: 1.1rem 1.25rem;
+}
+.pub-year {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 0.3rem 0.55rem;
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  border: 1px solid rgba(217, 220, 224, 0.18);
+  letter-spacing: 0.05em;
+}
+.pub-journal {
+  font-style: normal;
+  color: var(--ink-faint);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.pub-authors {
+  color: var(--ink-dim);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+.pub-authors .me {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pub-title {
+  color: var(--ink);
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 0.35rem;
+  font-size: 0.95rem;
+}
+
+/* ---------- Nav ---------- */
+.nav-link {
+  position: relative;
+  color: var(--ink-dim);
+  padding: 0.4rem 0.2rem;
+  font-weight: 500;
+  font-family: inherit;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  transition: color 180ms ease;
+}
+.nav-link:hover, .nav-link.active {
+  color: var(--ink);
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: -4px;
+  height: 1px;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 220ms ease;
+}
+.nav-link:hover::after, .nav-link.active::after {
+  transform: scaleX(1);
+}
+
+/* ---------- Tag chips ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: inherit;
+}
+.chip::before {
+  content: '·';
+  color: var(--ink-faint);
+}
+
+/* ---------- Footer ---------- */
+footer .tiny-link {
+  color: var(--ink-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 180ms ease;
+  font-family: inherit;
+}
+footer .tiny-link:hover { color: var(--ink); }
+
+/* ---------- Body link defaults inside copy ---------- */
+.content-layer a:not(.btn):not(.nav-link):not(.bond-link):not(.tiny-link):not([aria-label]) {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(217, 220, 224, 0.25);
+  transition: border-color 180ms ease;
+}
+.content-layer a:not(.btn):not(.nav-link):not(.bond-link):not(.tiny-link):not([aria-label]):hover {
+  border-bottom-color: var(--ink);
+}
+
+/* ---------- Mobile nav ---------- */
+@media (max-width: 768px) {
+  .mobile-hidden { display: none; }
+}
+
+/* ---------- Reduce motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .petri::before { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .cursor-blink::after { animation: none; }
+}

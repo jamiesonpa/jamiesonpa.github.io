@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research — Pierce Jamieson, Ph.D.</title>
+  <meta name="description" content="Selected publications, posters, awards, and teaching by Pierce Jamieson, Ph.D." />
+  <link rel="icon" type="image/png" href="assets/images/pierce_image1.png" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/custom.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+            display: ['"Share Tech Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen">
+  <canvas id="molecule-bg" aria-hidden="true"></canvas>
+
+  <div class="content-layer">
+    <!-- ============ NAV ============ -->
+    <header class="sticky top-0 z-30 bg-[#0b0b0e] border-b border-white/5">
+      <nav class="max-w-6xl mx-auto px-5 sm:px-8 py-4 flex items-center justify-between">
+        <a href="index.html" class="flex items-center gap-2.5 group">
+          <span class="inline-flex items-center justify-center w-9 h-9 rounded-sm border border-slate-500/50 bg-white/5 text-slate-300 font-mono font-medium text-sm">PJ</span>
+          <span class="font-semibold tracking-tight text-sm">PIERCE_JAMIESON<span class="text-slate-300">.PhD</span></span>
+        </a>
+
+        <button id="nav-toggle" aria-expanded="false" aria-controls="nav-menu"
+                class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 text-slate-200">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="3" y1="6"  x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <ul id="nav-menu" class="hidden md:flex items-center gap-7 text-sm">
+          <li><a class="nav-link" href="index.html">About</a></li>
+          <li><a class="nav-link active" href="research.html">Research</a></li>
+          <li><a class="nav-link" href="tutoring.html">Tutoring</a></li>
+          <li><a class="nav-link text-xs" href="projects/eve-tools/">Personal Projects</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <!-- ============ HEADER ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-10">
+      <div class="reveal">
+        <span class="eyebrow">Research</span>
+        <h1 class="mt-2 text-3xl sm:text-4xl font-medium leading-tight tracking-tight">
+          <span class="text-slate-500">$ cat</span> <span class="mono-accent">publications.log</span>
+        </h1>
+        <p class="mt-5 text-slate-300 max-w-3xl leading-relaxed">
+          My doctoral research focused on plant–fungal pathogen receptor biology — signal transduction, host–pathogen interactions, and metabolite-level readouts via HPLC. Below is a selection of peer-reviewed work, conference posters, awards, and teaching experience.
+        </p>
+
+        <div class="mt-7 flex flex-wrap gap-3">
+          <!-- TODO: replace # with your actual Google Scholar profile URL -->
+          <a href="#" class="btn btn-primary" target="_blank" rel="noopener">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L1 7l11 6 9-4.9V16h2V7L12 1zM5 13.18v3.6L12 21l7-4.22v-3.6L12 17.18l-7-4z"/></svg>
+            Google Scholar
+          </a>
+          <a href="assets/docs/Pierce_Jamieson_CV.pdf" target="_blank" rel="noopener" class="btn btn-ghost">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Full CV
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PUBLICATIONS ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 py-10">
+      <div class="reveal">
+        <h2 class="section-title">Selected Publications</h2>
+      </div>
+
+      <div class="grid gap-4 mt-8">
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2021</div>
+          <div>
+            <h3 class="pub-title">A nonproteinaceous <em>Fusarium</em> cell wall extract triggers receptor-like protein–dependent immune responses in <em>Arabidopsis</em> and cotton.</h3>
+            <p class="pub-authors">
+              <span class="me">Pierce Jamieson</span>, Kevin Babilonia, Ping Wang, Zunyong Liu, Brendan Mormile, Olivier Rodrigues, Lin Zhang, Wenwei Lin, Catherine Danmaigona Clement, Stéfanie Menezes de Moura, Marcio Alves-Ferreira, Scott A. Finlayson, Robert Loring Nichols, Terry A. Wheeler, Jane K. Dever, Libo Shan, Ping He.
+            </p>
+            <p class="pub-journal mt-1">New Phytologist</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2020</div>
+          <div>
+            <h3 class="pub-title">The cotton wall-associated kinase GhWAK7A mediates responses to fungal wilt pathogens by complexing with the chitin sensory receptors.</h3>
+            <p class="pub-authors">
+              Ping Wang, Lin Zhou, <span class="me">Pierce Jamieson</span>, Lin Zhang, Zhixue Zhao, Kevin Babilonia, Wenyong Shao, Lizhu Wu, Roma Mustafa, Imran Amin, Alessandra Diomaiuti, Daniela Pontiggia, Simone Ferrari, Yuxia Hou, Ping He, Libo Shan.
+            </p>
+            <p class="pub-journal mt-1">The Plant Cell</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2020</div>
+          <div>
+            <h3 class="pub-title">Accumulation and phytotoxicity of perfluorooctanoic acid and 2,3,3,3-tetrafluoro-2-(heptafluoropropoxy)propanoate in <em>Arabidopsis thaliana</em> and <em>Nicotiana benthamiana</em>.</h3>
+            <p class="pub-authors">
+              Chih-Hung Chen, Shih-Hung Yang, Yina Liu, <span class="me">Pierce Jamieson</span>, Libo Shan, Kung-Hui Chu.
+            </p>
+            <p class="pub-journal mt-1">Environmental Pollution</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2020</div>
+          <div>
+            <h3 class="pub-title">Plant sense: the rise of calcium channels.</h3>
+            <p class="pub-authors">
+              X. Kong, L. Xu, <span class="me">P. Jamieson</span>.
+            </p>
+            <p class="pub-journal mt-1">Trends in Plant Science</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2021</div>
+          <div>
+            <h3 class="pub-title">Mutation in <em>cyp51b</em> and overexpression of <em>cyp51a</em> and <em>cyp51b</em> confer multiple resistance to DMI fungicide prochloraz in <em>Fusarium fujikuroi</em>.</h3>
+            <p class="pub-authors">
+              Yu Zhang, ChengXin Mao, XiaoYu Zhai, <span class="me">Pierce A. Jamieson</span>, ChuanQing Zhang.
+            </p>
+            <p class="pub-journal mt-1">Pest Management Science</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2021</div>
+          <div>
+            <h3 class="pub-title">Function of the mitochondrial transport protein BcMtp1 in regulating vegetative development, asexual reproduction, stress response, fungicide sensitivity, and virulence of <em>Botrytis cinerea</em>.</h3>
+            <p class="pub-authors">
+              Wenyong Shao, Kai Wang, Jin Wang, Yu Zhang, Heng Xu, <span class="me">Pierce A. Jamieson</span>, Wenchan Chen, Hongyu Ma, Changjun Chen.
+            </p>
+            <p class="pub-journal mt-1">Disease Models &amp; Mechanisms</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2019</div>
+          <div>
+            <h3 class="pub-title">Alternative oxidase is involved in the pathogenicity, development, and oxygen stress response of <em>Botrytis cinerea</em>.</h3>
+            <p class="pub-authors">
+              Zesong Lin, Jianyan Wu, <span class="me">Pierce A. Jamieson</span>, Chuanqing Zhang.
+            </p>
+            <p class="pub-journal mt-1">Phytopathology</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2018</div>
+          <div>
+            <h3 class="pub-title">The Cloak, Dagger, and Shield: proteases in plant–pathogen interactions.</h3>
+            <p class="pub-authors">
+              S. Hou, <span class="me">P. A. Jamieson</span>, L. Shan.
+            </p>
+            <p class="pub-journal mt-1">Biochemical Journal, 475(15), 2491–2509</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2018</div>
+          <div>
+            <h3 class="pub-title">The plant cell molecular cypher: receptor-like proteins and their roles in immunity and development.</h3>
+            <p class="pub-authors">
+              <span class="me">P. A. Jamieson</span>, L. Shan, P. He.
+            </p>
+            <p class="pub-journal mt-1">Plant Science</p>
+          </div>
+        </article>
+
+        <article class="glass pub-card reveal">
+          <div class="pub-year">2018</div>
+          <div>
+            <h3 class="pub-title">The APEX approaches: a unified LRR-RLK network revealed.</h3>
+            <p class="pub-authors">
+              Y. Huang, <span class="me">P. A. Jamieson*</span>, L. Shan.
+              <span class="block text-xs text-slate-500 mt-1">*co-first author</span>
+            </p>
+            <p class="pub-journal mt-1">Trends in Plant Science, 23(5), 372–374</p>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ============ POSTERS ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 py-12">
+      <div class="reveal">
+        <h2 class="section-title">Poster Presentations</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4 mt-8">
+        <div class="glass p-5 reveal">
+          <div class="text-xs text-slate-300 font-mono">2018 · New Orleans, LA</div>
+          <h3 class="font-semibold mt-1">A case-study in gene family evolution post-allopolyploidization.</h3>
+          <p class="text-sm text-slate-400 mt-1">P. Jamieson, L. Shan. American Society of Plant Biologists, Southern Section.</p>
+        </div>
+        <div class="glass p-5 reveal">
+          <div class="text-xs text-slate-300 font-mono">2017 · College Station, TX</div>
+          <h3 class="font-semibold mt-1">The utility of FPKM versus TPM as RNA-seq read count normalization metrics.</h3>
+          <p class="text-sm text-slate-400 mt-1">P. Jamieson. Plant Pathology Annual Poster Symposium, Texas A&amp;M University.</p>
+        </div>
+        <div class="glass p-5 reveal">
+          <div class="text-xs text-slate-300 font-mono">2017 · College Station, TX</div>
+          <h3 class="font-semibold mt-1">A high-throughput bioinformatic approach for identifying receptor-like proteins in <em>Gossypium</em> spp.</h3>
+          <p class="text-sm text-slate-400 mt-1">P. Jamieson, L. Shan. ENG-LIFE Poster Symposium, Texas A&amp;M University.</p>
+        </div>
+        <div class="glass p-5 reveal">
+          <div class="text-xs text-slate-300 font-mono">2015 · College Station, TX</div>
+          <h3 class="font-semibold mt-1">Effect of Z-3-hexenal on mycotoxin production.</h3>
+          <p class="text-sm text-slate-400 mt-1">P. Jamieson, M. V. Kolomiets. Molecular-Environmental Plant Sciences Poster Symposium.</p>
+        </div>
+        <div class="glass p-5 reveal">
+          <div class="text-xs text-slate-300 font-mono">2014 · College Station, TX</div>
+          <h3 class="font-semibold mt-1">Lipid signalling: green leaf volatiles.</h3>
+          <p class="text-sm text-slate-400 mt-1">P. Jamieson, M. V. Kolomiets. BESC Undergraduate Poster Symposium.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AWARDS + TEACHING ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 py-12">
+      <div class="grid md:grid-cols-2 gap-8">
+        <div class="reveal">
+          <h2 class="section-title">Awards &amp; Honors</h2>
+          <ul class="mt-6 space-y-3">
+            <li class="glass p-4 flex items-start gap-3">
+              <span class="chip shrink-0">May 2017</span>
+              <span>Plant Pathology Annual Poster Symposium — <span class="text-slate-300">2nd Place</span></span>
+            </li>
+            <li class="glass p-4 flex items-start gap-3">
+              <span class="chip shrink-0">Apr 2015</span>
+              <span>Molecular &amp; Environmental Plant Science Poster Symposium — <span class="text-slate-300">2nd Place</span></span>
+            </li>
+            <li class="glass p-4 flex items-start gap-3">
+              <span class="chip shrink-0">Apr 2014</span>
+              <span>BESC Undergraduate Research Poster Symposium — <span class="text-slate-300">1st Place</span></span>
+            </li>
+            <li class="glass p-4 flex items-start gap-3">
+              <span class="chip shrink-0">Mar 2014</span>
+              <span>Research Experience for Undergraduates, National Science Foundation</span>
+            </li>
+            <li class="glass p-4 flex items-start gap-3">
+              <span class="chip shrink-0">Mar 2013</span>
+              <span>Aggie Research Scholars — <span class="text-slate-300">Team Leader</span></span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="reveal">
+          <h2 class="section-title">Teaching</h2>
+          <div class="glass p-6 mt-6">
+            <div class="text-xs text-slate-300 font-mono">Aug 2017 – May 2018</div>
+            <h3 class="font-semibold mt-1 text-lg">Teaching Assistant — Introduction to Plant Pathology</h3>
+            <p class="text-sm text-slate-400">Texas A&amp;M University, College Station, TX</p>
+            <p class="text-slate-300 mt-3 text-sm leading-relaxed">
+              Lectured and guided students (28 in fall, 39 in spring) through microbiology lab techniques, principles of plant–microbe interactions, PCR-based plant disease diagnostics, ELISA-based detection of viral proteins, and common host-range assays.
+            </p>
+          </div>
+
+          <div class="glass-strong p-6 mt-5">
+            <h3 class="font-semibold text-lg">Want a tutor with this background?</h3>
+            <p class="text-slate-300 mt-2 text-sm leading-relaxed">
+              I bring the same standards I used in the lab and the classroom to one-on-one tutoring. AP Chem, organic, biochem, intro molecular biology — high school and college.
+            </p>
+            <a href="tutoring.html" class="btn btn-terminal mt-4">See Tutoring</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="border-t border-white/5 mt-12">
+      <div class="max-w-6xl mx-auto px-5 sm:px-8 py-10 grid sm:grid-cols-3 gap-6 items-start">
+        <div>
+          <div class="font-semibold">Pierce Jamieson, Ph.D.</div>
+          <p class="text-sm text-slate-400 mt-1">Houston, TX · <a class="tiny-link" href="mailto:jamieson.pierce@gmail.com">jamieson.pierce@gmail.com</a></p>
+        </div>
+        <div class="flex sm:justify-center gap-5 text-slate-300">
+          <a class="hover:text-white" href="mailto:jamieson.pierce@gmail.com" aria-label="Email">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </a>
+          <a class="hover:text-white" href="https://github.com/jamiesonpa" target="_blank" rel="noopener" aria-label="GitHub">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.99 5.24.99 11.51c0 4.86 3.15 8.98 7.52 10.43.55.1.75-.24.75-.53 0-.26-.01-.95-.02-1.86-3.06.67-3.71-1.48-3.71-1.48-.5-1.28-1.23-1.62-1.23-1.62-1-.69.08-.68.08-.68 1.1.08 1.68 1.14 1.68 1.14.98 1.69 2.58 1.2 3.21.92.1-.72.39-1.2.7-1.48-2.44-.28-5.01-1.22-5.01-5.43 0-1.2.43-2.19 1.13-2.96-.11-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.13.88-.25 1.83-.37 2.78-.37.94 0 1.9.13 2.78.37 2.11-1.43 3.05-1.13 3.05-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.76 1.13 2.96 0 4.22-2.58 5.15-5.03 5.42.4.34.75 1.02.75 2.06 0 1.49-.01 2.69-.01 3.06 0 .29.2.64.76.53C19.86 20.49 23 16.37 23 11.51 23 5.24 18.27.5 12 .5z"/></svg>
+          </a>
+          <a class="hover:text-white" href="#" target="_blank" rel="noopener" aria-label="Google Scholar" title="Google Scholar (URL placeholder)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L1 7l11 6 9-4.9V16h2V7L12 1zM5 13.18v3.6L12 21l7-4.22v-3.6L12 17.18l-7-4z"/></svg>
+          </a>
+          <a class="hover:text-white" href="#" target="_blank" rel="noopener" aria-label="LinkedIn" title="LinkedIn (URL placeholder)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5C2.24 0 0 2.24 0 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5V5c0-2.76-2.24-5-5-5zM8 19H5V8h3v11zM6.5 6.73c-.97 0-1.75-.79-1.75-1.76s.78-1.76 1.75-1.76 1.75.79 1.75 1.76-.78 1.76-1.75 1.76zM20 19h-3v-5.6c0-1.34-.03-3.07-1.87-3.07-1.87 0-2.16 1.46-2.16 2.97V19h-3V8h2.88v1.5h.04c.4-.76 1.38-1.56 2.84-1.56 3.04 0 3.6 2 3.6 4.6V19z"/></svg>
+          </a>
+        </div>
+        <div class="sm:text-right text-sm">
+          <a class="tiny-link" href="projects/eve-tools/">Personal Projects →</a>
+          <p class="text-slate-500 mt-2">© <span id="year"></span> Pierce A. Jamieson</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="assets/js/effects.js"></script>
+</body>
+</html>

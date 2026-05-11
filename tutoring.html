@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutoring — Pierce Jamieson, Ph.D.</title>
+  <meta name="description" content="Chemistry & biochemistry tutoring with Pierce Jamieson, Ph.D. — for high school and college students, in-person around Houston and online via Zoom." />
+  <link rel="icon" type="image/png" href="assets/images/pierce_image1.png" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/custom.css" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+            display: ['"Share Tech Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen">
+  <canvas id="molecule-bg" aria-hidden="true"></canvas>
+
+  <div class="content-layer">
+    <!-- ============ NAV ============ -->
+    <header class="sticky top-0 z-30 bg-[#0b0b0e] border-b border-white/5">
+      <nav class="max-w-6xl mx-auto px-5 sm:px-8 py-4 flex items-center justify-between">
+        <a href="index.html" class="flex items-center gap-2.5 group">
+          <span class="inline-flex items-center justify-center w-9 h-9 rounded-sm border border-slate-500/50 bg-white/5 text-slate-300 font-mono font-medium text-sm">PJ</span>
+          <span class="font-semibold tracking-tight text-sm">PIERCE_JAMIESON<span class="text-slate-300">.PhD</span></span>
+        </a>
+
+        <button id="nav-toggle" aria-expanded="false" aria-controls="nav-menu"
+                class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 text-slate-200">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="3" y1="6"  x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+
+        <ul id="nav-menu" class="hidden md:flex items-center gap-7 text-sm">
+          <li><a class="nav-link" href="index.html">About</a></li>
+          <li><a class="nav-link" href="research.html">Research</a></li>
+          <li><a class="nav-link active" href="tutoring.html">Tutoring</a></li>
+          <li><a class="nav-link text-xs" href="projects/eve-tools/">Personal Projects</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <!-- ============ HERO ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 pt-14 sm:pt-20 pb-10">
+      <div class="reveal">
+        <span class="eyebrow">Tutoring</span>
+        <h1 class="mt-2 text-3xl sm:text-4xl lg:text-5xl font-medium leading-[1.15] tracking-tight">
+          <span class="text-slate-500">$ ./tutor.sh</span><br/>
+          <span class="mono-accent">chemistry &amp; biochem</span><span class="text-slate-400"> — done right.</span>
+        </h1>
+        <p class="mt-5 text-slate-300 max-w-2xl text-lg leading-relaxed">
+          One-on-one tutoring for high school and college students, with a PhD biochemist who has actually run the experiments. Build real intuition for how molecules behave — not just how to memorize them.
+        </p>
+
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="mailto:jamieson.pierce@gmail.com?subject=Tutoring%20Inquiry&amp;body=Hi%20Pierce%2C%20I%27m%20interested%20in%20tutoring.%20Here%27s%20what%20I%27m%20studying%3A%20"
+             class="btn btn-terminal text-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Request Tutoring
+          </a>
+          <a href="#subjects" class="btn btn-ghost">See Subjects</a>
+          <a href="#rates" class="btn btn-ghost">Rates &amp; Format</a>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-2">
+          <span class="chip">High School &amp; College</span>
+          <span class="chip">In-person · Houston</span>
+          <span class="chip">Online · Zoom</span>
+          <span class="chip">PhD Biochemist</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SUBJECTS ============ -->
+    <section id="subjects" class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+      <div class="reveal">
+        <span class="eyebrow">What I tutor</span>
+        <h2 class="section-title mt-2">Subjects</h2>
+        <p class="mt-3 text-slate-400 max-w-2xl">From the first chapter of high school chem to the gnarliest organic mechanism — and the biochemistry that connects them all.</p>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mt-8">
+        <div class="element-tile subject-tile reveal">
+          <div class="index">01</div>
+          <div class="symbol">Hc</div>
+          <div class="name">High School Chemistry</div>
+        </div>
+        <div class="element-tile subject-tile reveal">
+          <div class="index">02</div>
+          <div class="symbol">AP</div>
+          <div class="name">AP Chemistry</div>
+        </div>
+        <div class="element-tile subject-tile reveal">
+          <div class="index">03</div>
+          <div class="symbol">Gc</div>
+          <div class="name">General Chemistry I &amp; II</div>
+        </div>
+        <div class="element-tile subject-tile reveal">
+          <div class="index">04</div>
+          <div class="symbol">Oc</div>
+          <div class="name">Organic Chemistry I &amp; II</div>
+        </div>
+        <div class="element-tile subject-tile reveal">
+          <div class="index">05</div>
+          <div class="symbol">Bc</div>
+          <div class="name">Biochemistry</div>
+        </div>
+        <div class="element-tile subject-tile reveal">
+          <div class="index">06</div>
+          <div class="symbol">Mb</div>
+          <div class="name">Intro Molecular Biology</div>
+        </div>
+      </div>
+
+      <p class="text-slate-400 text-sm mt-6 max-w-3xl">
+        Not seeing your course? If it's in the chemistry / biochemistry / molecular biology orbit (test prep, MCAT bio-chem sections, intro analytical chemistry, lab report help) — ask. Odds are good I can help.
+      </p>
+    </section>
+
+    <!-- ============ FORMAT + RATES ============ -->
+    <section id="rates" class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+      <div class="grid lg:grid-cols-3 gap-5">
+
+        <div class="glass p-6 reveal">
+          <div class="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-white/5 border border-slate-500/40 text-slate-300 mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <h3 class="font-semibold text-lg">In-Person</h3>
+          <p class="text-sm text-slate-400 mt-1">Houston, TX area</p>
+          <p class="text-slate-300 mt-3 text-sm leading-relaxed">
+            Meet at a local library, coffee shop, or your home (with a parent or guardian present for minors). Best for whiteboard-heavy topics like organic mechanisms and stoichiometry.
+          </p>
+        </div>
+
+        <div class="glass p-6 reveal">
+          <div class="inline-flex items-center justify-center w-11 h-11 rounded-sm bg-white/5 border border-slate-500/40 text-slate-300 mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3 class="font-semibold text-lg">Online (Zoom)</h3>
+          <p class="text-sm text-slate-400 mt-1">Anywhere with a connection</p>
+          <p class="text-slate-300 mt-3 text-sm leading-relaxed">
+            Shared whiteboard, screen share for problem sets, and recorded sessions on request so you can rewatch the worked examples before an exam.
+          </p>
+        </div>
+
+        <div class="glass-strong p-6 reveal">
+          <div class="inline-flex items-center justify-center w-11 h-11 rounded-sm bg-white/5 border border-slate-500/40 text-slate-300 mb-4">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <h3 class="font-semibold text-lg">Rates</h3>
+          <p class="text-sm text-slate-400 mt-1">High school &amp; college</p>
+          <!-- TODO: replace this block with your real hourly rate when ready, e.g. "$75/hr". -->
+          <p class="text-2xl mono-accent mt-3">Contact for current rates</p>
+          <p class="text-slate-300 mt-2 text-sm leading-relaxed">
+            Free 15-minute intro call to make sure we're a good fit before you book. Multi-session and sibling discounts available.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============ WHY ME ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+      <div class="reveal">
+        <span class="eyebrow">Why work with me</span>
+        <h2 class="section-title mt-2">A tutor who's been in the lab.</h2>
+      </div>
+
+      <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mt-8">
+        <div class="glass p-6 reveal">
+          <div class="text-xs font-mono text-slate-300">01</div>
+          <h3 class="font-semibold mt-2">Ph.D. Biochemist</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            Texas A&amp;M, 2025. Specialized in plant–pathogen receptor biology, signal transduction, and HPLC-based analytical chemistry.
+          </p>
+        </div>
+        <div class="glass p-6 reveal">
+          <div class="text-xs font-mono text-slate-300">02</div>
+          <h3 class="font-semibold mt-2">Published Researcher</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            10+ peer-reviewed papers in journals like <em>The Plant Cell</em>, <em>New Phytologist</em>, and <em>Trends in Plant Science</em>. I know how science actually works.
+          </p>
+        </div>
+        <div class="glass p-6 reveal">
+          <div class="text-xs font-mono text-slate-300">03</div>
+          <h3 class="font-semibold mt-2">Classroom Experience</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            Former Teaching Assistant at Texas A&amp;M (Intro to Plant Pathology) — comfortable working with first-time learners and advanced students alike.
+          </p>
+        </div>
+        <div class="glass p-6 reveal">
+          <div class="text-xs font-mono text-slate-300">04</div>
+          <h3 class="font-semibold mt-2">Built for Intuition</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            I don't drill memorization. We build a mental model of <em>why</em> the chemistry works the way it does — the kind of fluency that survives the next exam, and the one after that.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 py-14">
+      <div class="reveal">
+        <span class="eyebrow">Getting started</span>
+        <h2 class="section-title mt-2">How it works</h2>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-5 mt-8">
+        <div class="glass p-6 reveal">
+          <div class="text-2xl mono-accent">01</div>
+          <h3 class="font-semibold mt-2">Reach out</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            Email me what you're studying, your goals (course, exam, MCAT), and your general schedule.
+          </p>
+        </div>
+        <div class="glass p-6 reveal">
+          <div class="text-2xl mono-accent">02</div>
+          <h3 class="font-semibold mt-2">Free intro call</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            15-minute Zoom or phone call. We talk through where you're stuck, what's been tried, and what would actually move the needle.
+          </p>
+        </div>
+        <div class="glass p-6 reveal">
+          <div class="text-2xl mono-accent">03</div>
+          <h3 class="font-semibold mt-2">Book sessions</h3>
+          <p class="text-sm text-slate-300 mt-2 leading-relaxed">
+            One-off or recurring weekly. I prep targeted material between sessions so we spend our time on what matters.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BIG CTA ============ -->
+    <section class="max-w-6xl mx-auto px-5 sm:px-8 py-16">
+      <div class="glass-strong p-8 sm:p-12 reveal text-center">
+        <h2 class="text-2xl sm:text-3xl font-medium">Ready to actually understand it<span class="mono-accent cursor-blink">?</span></h2>
+        <p class="mt-4 text-slate-300 max-w-2xl mx-auto text-sm">
+          Send a quick email — what you're studying, where you're stuck, and when you'd like to meet. I usually reply within a day.
+        </p>
+        <div class="mt-7 flex flex-wrap justify-center gap-3">
+          <a href="mailto:jamieson.pierce@gmail.com?subject=Tutoring%20Inquiry&amp;body=Hi%20Pierce%2C%20I%27m%20interested%20in%20tutoring.%20Here%27s%20what%20I%27m%20studying%3A%20"
+             class="btn btn-terminal text-sm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            jamieson.pierce@gmail.com
+          </a>
+          <a href="research.html" class="btn btn-ghost">My Research</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FOOTER ============ -->
+    <footer class="border-t border-white/5 mt-12">
+      <div class="max-w-6xl mx-auto px-5 sm:px-8 py-10 grid sm:grid-cols-3 gap-6 items-start">
+        <div>
+          <div class="font-semibold">Pierce Jamieson, Ph.D.</div>
+          <p class="text-sm text-slate-400 mt-1">Houston, TX · <a class="tiny-link" href="mailto:jamieson.pierce@gmail.com">jamieson.pierce@gmail.com</a></p>
+        </div>
+        <div class="flex sm:justify-center gap-5 text-slate-300">
+          <a class="hover:text-white" href="mailto:jamieson.pierce@gmail.com" aria-label="Email">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </a>
+          <a class="hover:text-white" href="https://github.com/jamiesonpa" target="_blank" rel="noopener" aria-label="GitHub">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.73.5.99 5.24.99 11.51c0 4.86 3.15 8.98 7.52 10.43.55.1.75-.24.75-.53 0-.26-.01-.95-.02-1.86-3.06.67-3.71-1.48-3.71-1.48-.5-1.28-1.23-1.62-1.23-1.62-1-.69.08-.68.08-.68 1.1.08 1.68 1.14 1.68 1.14.98 1.69 2.58 1.2 3.21.92.1-.72.39-1.2.7-1.48-2.44-.28-5.01-1.22-5.01-5.43 0-1.2.43-2.19 1.13-2.96-.11-.28-.49-1.4.11-2.92 0 0 .93-.3 3.05 1.13.88-.25 1.83-.37 2.78-.37.94 0 1.9.13 2.78.37 2.11-1.43 3.05-1.13 3.05-1.13.6 1.52.22 2.64.11 2.92.7.77 1.13 1.76 1.13 2.96 0 4.22-2.58 5.15-5.03 5.42.4.34.75 1.02.75 2.06 0 1.49-.01 2.69-.01 3.06 0 .29.2.64.76.53C19.86 20.49 23 16.37 23 11.51 23 5.24 18.27.5 12 .5z"/></svg>
+          </a>
+          <a class="hover:text-white" href="#" target="_blank" rel="noopener" aria-label="Google Scholar" title="Google Scholar (URL placeholder)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L1 7l11 6 9-4.9V16h2V7L12 1zM5 13.18v3.6L12 21l7-4.22v-3.6L12 17.18l-7-4z"/></svg>
+          </a>
+          <a class="hover:text-white" href="#" target="_blank" rel="noopener" aria-label="LinkedIn" title="LinkedIn (URL placeholder)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0H5C2.24 0 0 2.24 0 5v14c0 2.76 2.24 5 5 5h14c2.76 0 5-2.24 5-5V5c0-2.76-2.24-5-5-5zM8 19H5V8h3v11zM6.5 6.73c-.97 0-1.75-.79-1.75-1.76s.78-1.76 1.75-1.76 1.75.79 1.75 1.76-.78 1.76-1.75 1.76zM20 19h-3v-5.6c0-1.34-.03-3.07-1.87-3.07-1.87 0-2.16 1.46-2.16 2.97V19h-3V8h2.88v1.5h.04c.4-.76 1.38-1.56 2.84-1.56 3.04 0 3.6 2 3.6 4.6V19z"/></svg>
+          </a>
+        </div>
+        <div class="sm:text-right text-sm">
+          <a class="tiny-link" href="projects/eve-tools/">Personal Projects →</a>
+          <p class="text-slate-500 mt-2">© <span id="year"></span> Pierce A. Jamieson</p>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script src="assets/js/effects.js"></script>
+</body>
+</html>
