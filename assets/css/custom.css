@@ -337,7 +337,7 @@ body::before {
 
 /* ---------- Section heading ---------- */
 .section-title {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.85rem;
   font-size: clamp(1.25rem, 2.4vw, 1.75rem);
