@@ -173,13 +173,20 @@
       return t * t * (3 - 2 * t);
     }
 
+    // 6t^5 - 15t^4 + 10t^3 — flatter ends than smoothstep, smoother feel.
+    function smootherstep(t) {
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+
     function instanceWeight(s, inst) {
       if (s >= inst.start && s <= inst.end) return 1;
       if (s < inst.start && s > inst.start - inst.fadeIn) {
-        return smoothstep((s - (inst.start - inst.fadeIn)) / inst.fadeIn);
+        return smootherstep((s - (inst.start - inst.fadeIn)) / inst.fadeIn);
       }
       if (s > inst.end && s < inst.end + inst.fadeOut) {
-        return 1 - smoothstep((s - inst.end) / inst.fadeOut);
+        return 1 - smootherstep((s - inst.end) / inst.fadeOut);
       }
       return 0;
     }
@@ -204,6 +211,7 @@
 
     function buildInstances() {
       instances = [];
+      for (let i = 0; i < atoms.length; i++) atoms[i].owner = null;
       const area = width * height;
       // Number of instances scales with viewport area.
       const targetInstances = Math.max(4, Math.min(10, Math.floor(area / 260000)));
@@ -267,12 +275,14 @@
         }
         if (!placed) continue;
 
-        const duration = 0.32 + Math.random() * 0.22;          // long plateau
+        // Longer fades + shorter plateaus produce slower, smoother forming
+        // and unforming as the user scrolls past each instance.
+        const duration = 0.16 + Math.random() * 0.16;          // 16-32% plateau
         const start = startSlots[i] + (Math.random() - 0.5) * 0.08;
-        const fadeIn = 0.035 + Math.random() * 0.025;          // quick crossfade
-        const fadeOut = 0.035 + Math.random() * 0.025;
+        const fadeIn = 0.10 + Math.random() * 0.08;            // 10-18% smooth fade
+        const fadeOut = 0.10 + Math.random() * 0.08;
 
-        instances.push({
+        const newInst = {
           x, y, rot, bbRadius,
           points: built.points,
           bonds: built.bonds,
@@ -281,7 +291,13 @@
           start,
           end: start + duration,
           fadeIn, fadeOut,
-        });
+          _w: 0,
+        };
+        instances.push(newInst);
+        for (let q = 0; q < k; q++) {
+          const aIdx = totalK + q;
+          if (aIdx < atoms.length) atoms[aIdx].owner = newInst;
+        }
         totalK += k;
       }
     }
@@ -292,12 +308,49 @@
       updateScrollProgress();
       ctx.clearRect(0, 0, width, height);
 
-      // 1) Free-drift atoms + reset render state.
+      // 1) Compute each instance's current weight once per frame.
+      //    Cache cos/sin so atom step doesn't recompute them per atom.
+      for (let k = 0; k < instances.length; k++) {
+        const inst = instances[k];
+        inst._w = instanceWeight(scrollProgress, inst);
+        inst._cosR = Math.cos(inst.rot);
+        inst._sinR = Math.sin(inst.rot);
+      }
+
+      // 2) Update atoms with frame-rate-paced smooth pull (not scroll-paced
+      //    instant lerp). This makes motion feel like a continuous gather /
+      //    release rather than a snap, even when the user scrolls quickly.
+      //    During engagement, free drift is dampened by (1 - w) so atoms
+      //    don't jitter while sitting at a formation slot.
       for (let i = 0; i < atoms.length; i++) {
         const a = atoms[i];
-        if (!reducedMotion) {
+        const owner = a.owner;
+        let eng = 0;
+        if (owner && owner._w > 0.001) {
+          const w = owner._w;
+          eng = w;
+          const slotIdx = i - owner.atomStart;
+          const pt = owner.points[slotIdx];
+          const tx = owner.x + (pt[0] * owner._cosR - pt[1] * owner._sinR);
+          const ty = owner.y + (pt[0] * owner._sinR + pt[1] * owner._cosR);
+          // Pull strength caps at ~0.09/frame, so atoms fully gather in
+          // ~30 frames (~0.5 s at 60 fps) regardless of how fast the user
+          // scrolls past the activation window.
+          const pull = w * 0.09;
+          a.x += (tx - a.x) * pull;
+          a.y += (ty - a.y) * pull;
+          if (!reducedMotion) {
+            const driftFrac = 1 - w;
+            a.x += a.vx * driftFrac;
+            a.y += a.vy * driftFrac;
+          }
+        } else if (!reducedMotion) {
           a.x += a.vx;
           a.y += a.vy;
+        }
+        // Only wrap when not strongly engaged, so a wrap can't teleport an
+        // atom mid-formation.
+        if (eng < 0.4) {
           if (a.x < -20) a.x = width + 20;
           if (a.x > width + 20) a.x = -20;
           if (a.y < -20) a.y = height + 20;
@@ -305,28 +358,7 @@
         }
         a.rx = a.x;
         a.ry = a.y;
-        a.engaged = 0;
-      }
-
-      // 2) Pull each active instance's atoms toward their formation slots.
-      for (let k = 0; k < instances.length; k++) {
-        const inst = instances[k];
-        const w = instanceWeight(scrollProgress, inst);
-        inst._w = w;
-        if (w <= 0) continue;
-        const cosR = Math.cos(inst.rot);
-        const sinR = Math.sin(inst.rot);
-        for (let i = 0; i < inst.atomCount; i++) {
-          const idx = inst.atomStart + i;
-          if (idx >= atoms.length) break;
-          const a = atoms[idx];
-          const [px, py] = inst.points[i];
-          const tx = inst.x + (px * cosR - py * sinR);
-          const ty = inst.y + (px * sinR + py * cosR);
-          a.rx = a.x + (tx - a.x) * w;
-          a.ry = a.y + (ty - a.y) * w;
-          if (w > a.engaged) a.engaged = w;
-        }
+        a.engaged = eng;
       }
 
       // 3) Ambient proximity-bond network (skip heavily engaged atoms so
