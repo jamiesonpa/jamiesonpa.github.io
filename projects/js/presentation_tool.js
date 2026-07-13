@@ -1,5 +1,5 @@
 const BACK_STEP_SECONDS = 0.5;
-const FAST_FORWARD_RATE = 2;
+const FAST_FORWARD_SECONDS_PER_SECOND = 2;
 const NORMAL_FORWARD_RATE = 1;
 
 const setupShell = document.querySelector(".presentation-shell");
@@ -15,6 +15,8 @@ let isPresenting = false;
 let isRightArrowDown = false;
 let isFastForwardDown = false;
 let playPromise = null;
+let fastScrubFrameId = null;
+let lastFastScrubFrameAt = null;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -41,8 +43,17 @@ function updateReadyStatus() {
 }
 
 function pauseVideo() {
+  stopFastScrub();
   video.pause();
   video.playbackRate = NORMAL_FORWARD_RATE;
+}
+
+function stopFastScrub() {
+  if (fastScrubFrameId !== null) {
+    cancelAnimationFrame(fastScrubFrameId);
+    fastScrubFrameId = null;
+  }
+  lastFastScrubFrameAt = null;
 }
 
 function isInterruptedPlayError(error) {
@@ -50,6 +61,7 @@ function isInterruptedPlayError(error) {
 }
 
 function playVideoAtRate(rate) {
+  stopFastScrub();
   if (video.playbackRate !== rate) {
     video.playbackRate = rate;
   }
@@ -70,6 +82,37 @@ function playVideoAtRate(rate) {
     });
 }
 
+function fastScrubStep(now) {
+  if (!isPresenting || !isFastForwardDown) {
+    stopFastScrub();
+    return;
+  }
+
+  if (lastFastScrubFrameAt === null) {
+    lastFastScrubFrameAt = now;
+  }
+
+  const elapsedSeconds = Math.min((now - lastFastScrubFrameAt) / 1000, 0.08);
+  lastFastScrubFrameAt = now;
+  video.currentTime = Math.min(video.duration || Infinity, video.currentTime + elapsedSeconds * FAST_FORWARD_SECONDS_PER_SECOND);
+
+  if (Number.isFinite(video.duration) && video.currentTime >= video.duration) {
+    isFastForwardDown = false;
+    stopFastScrub();
+    return;
+  }
+
+  fastScrubFrameId = requestAnimationFrame(fastScrubStep);
+}
+
+function startFastScrub() {
+  video.pause();
+  video.playbackRate = NORMAL_FORWARD_RATE;
+  if (fastScrubFrameId === null) {
+    fastScrubFrameId = requestAnimationFrame(fastScrubStep);
+  }
+}
+
 function stepBackward() {
   isRightArrowDown = false;
   isFastForwardDown = false;
@@ -82,10 +125,11 @@ function updatePlaybackFromKeys() {
     return;
   }
   if (isFastForwardDown) {
-    playVideoAtRate(FAST_FORWARD_RATE);
+    startFastScrub();
   } else if (isRightArrowDown) {
     playVideoAtRate(NORMAL_FORWARD_RATE);
   } else {
+    stopFastScrub();
     pauseVideo();
   }
 }
