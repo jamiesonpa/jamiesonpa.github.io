@@ -1,4 +1,6 @@
-const REVERSE_SECONDS_PER_SECOND = 1;
+const BACK_STEP_SECONDS = 0.5;
+const FAST_FORWARD_RATE = 2;
+const NORMAL_FORWARD_RATE = 1;
 
 const setupShell = document.querySelector(".presentation-shell");
 const stage = document.getElementById("presentation-stage");
@@ -11,8 +13,7 @@ let videoUrl = null;
 let metadataLoaded = false;
 let isPresenting = false;
 let heldDirection = null;
-let reverseFrameId = null;
-let lastReverseFrameAt = null;
+let isControlDown = false;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -35,48 +36,18 @@ function updateReadyStatus() {
     setStatus("Loading video metadata...", "busy");
     return;
   }
-  setStatus("Video loaded. Press Start, then hold right arrow to play or left arrow to reverse.", "ok");
-}
-
-function stopReverseLoop() {
-  if (reverseFrameId !== null) {
-    cancelAnimationFrame(reverseFrameId);
-    reverseFrameId = null;
-  }
-  lastReverseFrameAt = null;
+  setStatus("Video loaded. Press Start, then hold right arrow to play. Hold Ctrl + right arrow for 2x.", "ok");
 }
 
 function pauseVideo() {
-  stopReverseLoop();
   video.pause();
+  video.playbackRate = NORMAL_FORWARD_RATE;
   heldDirection = null;
 }
 
-function reverseStep(now) {
-  if (!isPresenting || heldDirection !== "backward") {
-    stopReverseLoop();
-    return;
-  }
-
-  if (lastReverseFrameAt === null) {
-    lastReverseFrameAt = now;
-  }
-
-  const elapsedSeconds = Math.min((now - lastReverseFrameAt) / 1000, 0.08);
-  lastReverseFrameAt = now;
-  video.currentTime = Math.max(0, video.currentTime - elapsedSeconds * REVERSE_SECONDS_PER_SECOND);
-
-  if (video.currentTime <= 0) {
-    pauseVideo();
-    return;
-  }
-
-  reverseFrameId = requestAnimationFrame(reverseStep);
-}
-
 async function playForward() {
-  stopReverseLoop();
   heldDirection = "forward";
+  video.playbackRate = isControlDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
   try {
     await video.play();
   } catch (error) {
@@ -85,11 +56,14 @@ async function playForward() {
   }
 }
 
-function playBackward() {
-  video.pause();
-  heldDirection = "backward";
-  if (reverseFrameId === null) {
-    reverseFrameId = requestAnimationFrame(reverseStep);
+function stepBackward() {
+  pauseVideo();
+  video.currentTime = Math.max(0, video.currentTime - BACK_STEP_SECONDS);
+}
+
+function updateForwardRate() {
+  if (heldDirection === "forward" && !video.paused) {
+    video.playbackRate = isControlDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
   }
 }
 
@@ -139,7 +113,7 @@ function handleArrowDown(key) {
   if (key === "ArrowRight") {
     playForward();
   } else if (key === "ArrowLeft") {
-    playBackward();
+    stepBackward();
   }
 }
 
@@ -147,7 +121,7 @@ function handleArrowUp(key) {
   if (!isPresenting) {
     return;
   }
-  if ((key === "ArrowRight" && heldDirection === "forward") || (key === "ArrowLeft" && heldDirection === "backward")) {
+  if (key === "ArrowRight" && heldDirection === "forward") {
     pauseVideo();
   }
 }
@@ -173,6 +147,11 @@ video.addEventListener("ended", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Control") {
+    isControlDown = true;
+    updateForwardRate();
+    return;
+  }
   if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
     return;
   }
@@ -181,12 +160,17 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   event.preventDefault();
-  if (!event.repeat) {
+  if (event.key === "ArrowLeft" || !event.repeat) {
     handleArrowDown(event.key);
   }
 });
 
 document.addEventListener("keyup", (event) => {
+  if (event.key === "Control") {
+    isControlDown = false;
+    updateForwardRate();
+    return;
+  }
   if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
     return;
   }
@@ -195,5 +179,6 @@ document.addEventListener("keyup", (event) => {
 });
 
 window.addEventListener("blur", () => {
+  isControlDown = false;
   pauseVideo();
 });
