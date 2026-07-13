@@ -1,4 +1,5 @@
 const TOLERANCE_SECONDS = 0.05;
+const SEEK_TOLERANCE_SECONDS = 0.12;
 
 const setupShell = document.querySelector(".presentation-shell");
 const stage = document.getElementById("presentation-stage");
@@ -109,9 +110,15 @@ function formatTime(seconds) {
   return `${mins}:${String(secs).padStart(2, "0")}${decimal}`;
 }
 
+function seekIfNeeded(time) {
+  if (Math.abs(video.currentTime - time) > SEEK_TOLERANCE_SECONDS) {
+    video.currentTime = time;
+  }
+}
+
 function resetPlayback(message = null) {
   video.pause();
-  video.currentTime = 0;
+  seekIfNeeded(0);
   currentSegmentIndex = 0;
   activeTarget = null;
   isPlayingSegment = false;
@@ -183,6 +190,7 @@ function loadVideoFile(file) {
   metadataLoaded = false;
   videoUrl = URL.createObjectURL(file);
   video.src = videoUrl;
+  video.load();
   resetPlayback("Loading video metadata...");
   setStatus("Loading video metadata...", "busy");
 }
@@ -249,7 +257,7 @@ async function playSegment(direction) {
 
   activeTarget = target;
   isPlayingSegment = true;
-  video.currentTime = segmentStart;
+  seekIfNeeded(segmentStart);
 
   try {
     await video.play();
@@ -265,11 +273,10 @@ function pauseAtTarget() {
     return;
   }
 
-  video.currentTime = activeTarget;
-  video.pause();
   currentSegmentIndex += 1;
   isPlayingSegment = false;
   activeTarget = null;
+  video.pause();
 
   if (currentSegmentIndex >= timestamps.length) {
     setStatus("Presentation complete.", "ok");
