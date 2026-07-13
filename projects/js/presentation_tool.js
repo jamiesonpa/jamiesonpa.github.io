@@ -13,7 +13,7 @@ let videoUrl = null;
 let metadataLoaded = false;
 let isPresenting = false;
 let heldDirection = null;
-let isControlDown = false;
+let isFastKeyDown = false;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -36,7 +36,7 @@ function updateReadyStatus() {
     setStatus("Loading video metadata...", "busy");
     return;
   }
-  setStatus("Video loaded. Press Start, then hold right arrow to play. Hold Ctrl + right arrow for 2x.", "ok");
+  setStatus("Video loaded. Press Start, then hold right arrow to play. Hold F + right arrow for 2x.", "ok");
 }
 
 function pauseVideo() {
@@ -51,7 +51,7 @@ function isInterruptedPlayError(error) {
 
 function playForward() {
   heldDirection = "forward";
-  video.playbackRate = isControlDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
+  video.playbackRate = isFastKeyDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
   video.play().catch((error) => {
     if (isInterruptedPlayError(error)) {
       return;
@@ -68,7 +68,7 @@ function stepBackward() {
 
 function updateForwardRate() {
   if (heldDirection === "forward" && !video.paused) {
-    video.playbackRate = isControlDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
+    video.playbackRate = isFastKeyDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
   }
 }
 
@@ -152,11 +152,11 @@ video.addEventListener("ended", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Control") {
+  if (event.key.toLowerCase() === "f") {
     if (isPresenting) {
       event.preventDefault();
     }
-    isControlDown = true;
+    isFastKeyDown = true;
     updateForwardRate();
     return;
   }
@@ -174,11 +174,11 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keyup", (event) => {
-  if (event.key === "Control") {
+  if (event.key.toLowerCase() === "f") {
     if (isPresenting) {
       event.preventDefault();
     }
-    isControlDown = false;
+    isFastKeyDown = false;
     updateForwardRate();
     return;
   }
@@ -190,6 +190,6 @@ document.addEventListener("keyup", (event) => {
 });
 
 window.addEventListener("blur", () => {
-  isControlDown = false;
+  isFastKeyDown = false;
   pauseVideo();
 });
