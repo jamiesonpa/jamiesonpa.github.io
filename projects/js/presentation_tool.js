@@ -12,7 +12,8 @@ const video = document.getElementById("presentation-video");
 let videoUrl = null;
 let metadataLoaded = false;
 let isPresenting = false;
-let heldDirection = null;
+let isRightArrowDown = false;
+let isFastForwardDown = false;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -41,16 +42,19 @@ function updateReadyStatus() {
 function pauseVideo() {
   video.pause();
   video.playbackRate = NORMAL_FORWARD_RATE;
-  heldDirection = null;
 }
 
 function isInterruptedPlayError(error) {
   return error && (error.name === "AbortError" || String(error.message || "").includes("interrupted by a call to pause"));
 }
 
-function playForward(rate) {
-  heldDirection = rate === FAST_FORWARD_RATE ? "fast-forward" : "forward";
-  video.playbackRate = rate;
+function playVideoAtRate(rate) {
+  if (video.playbackRate !== rate) {
+    video.playbackRate = rate;
+  }
+  if (!video.paused) {
+    return;
+  }
   video.play().catch((error) => {
     if (isInterruptedPlayError(error)) {
       return;
@@ -61,8 +65,23 @@ function playForward(rate) {
 }
 
 function stepBackward() {
+  isRightArrowDown = false;
+  isFastForwardDown = false;
   pauseVideo();
   video.currentTime = Math.max(0, video.currentTime - BACK_STEP_SECONDS);
+}
+
+function updatePlaybackFromKeys() {
+  if (!isPresenting) {
+    return;
+  }
+  if (isFastForwardDown) {
+    playVideoAtRate(FAST_FORWARD_RATE);
+  } else if (isRightArrowDown) {
+    playVideoAtRate(NORMAL_FORWARD_RATE);
+  } else {
+    pauseVideo();
+  }
 }
 
 function loadVideoFile(file) {
@@ -113,9 +132,11 @@ function handleKeyDown(event) {
     return;
   }
   if (event.key === "ArrowRight") {
-    playForward(NORMAL_FORWARD_RATE);
+    isRightArrowDown = true;
+    updatePlaybackFromKeys();
   } else if (isFastForwardKey(event)) {
-    playForward(FAST_FORWARD_RATE);
+    isFastForwardDown = true;
+    updatePlaybackFromKeys();
   } else if (event.key === "ArrowLeft") {
     stepBackward();
   }
@@ -125,10 +146,12 @@ function handleKeyUp(event) {
   if (!isPresenting) {
     return;
   }
-  if (event.key === "ArrowRight" && heldDirection === "forward") {
-    pauseVideo();
-  } else if (isFastForwardKey(event) && heldDirection === "fast-forward") {
-    pauseVideo();
+  if (event.key === "ArrowRight") {
+    isRightArrowDown = false;
+    updatePlaybackFromKeys();
+  } else if (isFastForwardKey(event)) {
+    isFastForwardDown = false;
+    updatePlaybackFromKeys();
   }
 }
 
@@ -138,6 +161,8 @@ videoInput.addEventListener("change", () => {
 
 startButton.addEventListener("click", () => {
   if (enterPresentationMode()) {
+    isRightArrowDown = false;
+    isFastForwardDown = false;
     pauseVideo();
   }
 });
@@ -161,7 +186,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   event.preventDefault();
-  if (event.key === "ArrowLeft" || !event.repeat) {
+  if (event.key !== "ArrowRight" || !event.repeat) {
     handleKeyDown(event);
   }
 });
@@ -175,5 +200,7 @@ document.addEventListener("keyup", (event) => {
 });
 
 window.addEventListener("blur", () => {
+  isRightArrowDown = false;
+  isFastForwardDown = false;
   pauseVideo();
 });
