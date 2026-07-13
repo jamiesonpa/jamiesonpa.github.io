@@ -278,10 +278,12 @@ function pauseAtTarget() {
   activeTarget = null;
   video.pause();
 
-  if (currentSegmentIndex >= timestamps.length) {
-    setStatus("Presentation complete.", "ok");
-  } else {
-    setStatus(`Paused at ${formatTime(video.currentTime)}.`, "ok");
+  if (!isPresenting) {
+    if (currentSegmentIndex >= timestamps.length) {
+      setStatus("Presentation complete.", "ok");
+    } else {
+      setStatus(`Paused at ${formatTime(video.currentTime)}.`, "ok");
+    }
   }
 }
 
@@ -330,6 +332,10 @@ video.addEventListener("ended", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+    return;
+  }
+  if (event.repeat) {
+    event.preventDefault();
     return;
   }
   const tagName = event.target && event.target.tagName;
