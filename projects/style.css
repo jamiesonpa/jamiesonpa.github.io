@@ -1054,7 +1054,7 @@ select:hover {
   align-items: center;
   justify-content: center;
   background: #000;
-  cursor: none;
+  cursor: auto;
 }
 .presentation-stage video {
   display: block;
