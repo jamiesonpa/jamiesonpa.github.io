@@ -144,8 +144,15 @@ function toggleControls() {
     return;
   }
   controlsVisible = !controlsVisible;
+  isRightArrowDown = false;
+  pauseVideo();
   video.controls = controlsVisible;
   stage.classList.toggle("controls-visible", controlsVisible);
+  if (!controlsVisible) {
+    requestAnimationFrame(() => {
+      video.focus();
+    });
+  }
 }
 
 function handleKeyDown(event) {
