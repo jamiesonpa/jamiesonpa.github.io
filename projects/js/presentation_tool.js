@@ -13,7 +13,6 @@ let videoUrl = null;
 let metadataLoaded = false;
 let isPresenting = false;
 let heldDirection = null;
-let isFastKeyDown = false;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -36,7 +35,7 @@ function updateReadyStatus() {
     setStatus("Loading video metadata...", "busy");
     return;
   }
-  setStatus("Video loaded. Press Start, then hold right arrow to play. Hold F + right arrow for 2x.", "ok");
+  setStatus("Video loaded. Press Start, then hold right arrow for 1x or . for 2x.", "ok");
 }
 
 function pauseVideo() {
@@ -49,9 +48,9 @@ function isInterruptedPlayError(error) {
   return error && (error.name === "AbortError" || String(error.message || "").includes("interrupted by a call to pause"));
 }
 
-function playForward() {
-  heldDirection = "forward";
-  video.playbackRate = isFastKeyDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
+function playForward(rate) {
+  heldDirection = rate === FAST_FORWARD_RATE ? "fast-forward" : "forward";
+  video.playbackRate = rate;
   video.play().catch((error) => {
     if (isInterruptedPlayError(error)) {
       return;
@@ -64,12 +63,6 @@ function playForward() {
 function stepBackward() {
   pauseVideo();
   video.currentTime = Math.max(0, video.currentTime - BACK_STEP_SECONDS);
-}
-
-function updateForwardRate() {
-  if (heldDirection === "forward" && !video.paused) {
-    video.playbackRate = isFastKeyDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
-  }
 }
 
 function loadVideoFile(file) {
@@ -111,22 +104,30 @@ function exitPresentationModeWithError(message) {
   setStatus(message, "err");
 }
 
-function handleArrowDown(key) {
+function isFastForwardKey(event) {
+  return event.key === "." || event.key === ">";
+}
+
+function handleKeyDown(event) {
   if (!isPresenting) {
     return;
   }
-  if (key === "ArrowRight") {
-    playForward();
-  } else if (key === "ArrowLeft") {
+  if (event.key === "ArrowRight") {
+    playForward(NORMAL_FORWARD_RATE);
+  } else if (isFastForwardKey(event)) {
+    playForward(FAST_FORWARD_RATE);
+  } else if (event.key === "ArrowLeft") {
     stepBackward();
   }
 }
 
-function handleArrowUp(key) {
+function handleKeyUp(event) {
   if (!isPresenting) {
     return;
   }
-  if (key === "ArrowRight" && heldDirection === "forward") {
+  if (event.key === "ArrowRight" && heldDirection === "forward") {
+    pauseVideo();
+  } else if (isFastForwardKey(event) && heldDirection === "fast-forward") {
     pauseVideo();
   }
 }
@@ -152,15 +153,7 @@ video.addEventListener("ended", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() === "f") {
-    if (isPresenting) {
-      event.preventDefault();
-    }
-    isFastKeyDown = true;
-    updateForwardRate();
-    return;
-  }
-  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && !isFastForwardKey(event)) {
     return;
   }
   const tagName = event.target && event.target.tagName;
@@ -169,27 +162,18 @@ document.addEventListener("keydown", (event) => {
   }
   event.preventDefault();
   if (event.key === "ArrowLeft" || !event.repeat) {
-    handleArrowDown(event.key);
+    handleKeyDown(event);
   }
 });
 
 document.addEventListener("keyup", (event) => {
-  if (event.key.toLowerCase() === "f") {
-    if (isPresenting) {
-      event.preventDefault();
-    }
-    isFastKeyDown = false;
-    updateForwardRate();
-    return;
-  }
-  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && !isFastForwardKey(event)) {
     return;
   }
   event.preventDefault();
-  handleArrowUp(event.key);
+  handleKeyUp(event);
 });
 
 window.addEventListener("blur", () => {
-  isFastKeyDown = false;
   pauseVideo();
 });
