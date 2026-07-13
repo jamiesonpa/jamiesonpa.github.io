@@ -14,7 +14,8 @@
           <a href="index.html" class="back-link">&larr; Back to projects</a>
         </div>
         <p class="presentation-blurb">
-          Upload an MP4 and a timestamp text file, then start the presentation.
+          Upload an MP4, start the presentation, then hold right arrow to play
+          forward or left arrow to reverse.
         </p>
       </header>
 
@@ -24,15 +25,11 @@
             <span>MP4 video</span>
             <input id="video-file" type="file" accept=".mp4,video/mp4" />
           </label>
-          <label class="presentation-upload">
-            <span>Timestamp TXT</span>
-            <input id="timestamp-file" type="file" accept=".txt,text/plain" />
-          </label>
         </div>
 
         <div class="presentation-actions">
           <button id="start-button" class="primary" type="button">Start</button>
-          <span id="presentation-status" class="presentation-status">Upload an MP4 and timestamp file.</span>
+          <span id="presentation-status" class="presentation-status">Upload an MP4 video.</span>
         </div>
       </section>
     </div>
@@ -41,6 +38,6 @@
       <video id="presentation-video" preload="auto" playsinline></video>
     </main>
 
-    <script type="module" src="./js/presentation_tool.js?v=20260713-low-lag"></script>
+    <script type="module" src="./js/presentation_tool.js?v=20260713-hold-arrows"></script>
   </body>
 </html>

@@ -923,7 +923,7 @@ select:hover {
 }
 
 /* --- Presentation Tool page (presentation_tool.html) -------------------
-   Scoped vertical-flow layout for local MP4 + timestamp presentation. */
+   Scoped vertical-flow layout for local MP4 keyboard presentation. */
 .presentation-body {
   overflow: auto;
   background: #0a0e16;
