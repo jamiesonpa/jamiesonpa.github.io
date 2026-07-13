@@ -873,6 +873,13 @@ select:hover {
   color: #fff;
   letter-spacing: 0.2px;
 }
+.landing-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 24px;
+}
 .landing-blurb {
   margin: 4px 0 28px 0;
   font-size: 14px;
@@ -1058,6 +1065,12 @@ select:hover {
   object-fit: contain;
   background: #000;
   pointer-events: none;
+}
+.presentation-stage.controls-visible {
+  cursor: auto;
+}
+.presentation-stage.controls-visible video {
+  pointer-events: auto;
 }
 
 @media (max-width: 640px) {

@@ -14,6 +14,7 @@ let metadataLoaded = false;
 let isPresenting = false;
 let isRightArrowDown = false;
 let playPromise = null;
+let controlsVisible = false;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -119,6 +120,8 @@ function enterPresentationMode() {
   stage.classList.remove("hidden");
   video.removeAttribute("controls");
   video.controls = false;
+  controlsVisible = false;
+  stage.classList.remove("controls-visible");
   video.focus();
   return true;
 }
@@ -134,6 +137,15 @@ function exitPresentationModeWithError(message) {
 
 function isFastForwardKey(event) {
   return event.key === "." || event.key === ">";
+}
+
+function toggleControls() {
+  if (!isPresenting) {
+    return;
+  }
+  controlsVisible = !controlsVisible;
+  video.controls = controlsVisible;
+  stage.classList.toggle("controls-visible", controlsVisible);
 }
 
 function handleKeyDown(event) {
@@ -182,6 +194,17 @@ video.addEventListener("ended", () => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() === "c") {
+    const tagName = event.target && event.target.tagName;
+    if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT") {
+      return;
+    }
+    event.preventDefault();
+    if (!event.repeat) {
+      toggleControls();
+    }
+    return;
+  }
   if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && !isFastForwardKey(event)) {
     return;
   }
