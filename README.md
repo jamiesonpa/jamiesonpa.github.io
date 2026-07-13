@@ -23,7 +23,9 @@ Personal site for **Pierce Jamieson, Ph.D.** — biochemist, researcher, and che
 │   ├── images/             # Profile photo + any other site images
 │   └── docs/               # Downloadable CV (PDF)
 └── projects/
-    └── eve-tools/          # Your existing EVE Online Tools site (see below)
+    ├── index.html          # Personal projects landing page
+    ├── simulator.html      # EVE Online Tools simulator
+    └── eve-tools/          # Redirect from the old project URL
 ```
 
 ---
@@ -64,7 +66,7 @@ npx serve .
 
 Your existing `jamiesonpa.github.io` repo currently hosts the **EVE Online Tools** page at its root. We want to:
 
-1. Move the existing EVE Tools content into `projects/eve-tools/`.
+1. Move the existing EVE Tools content into `projects/`.
 2. Drop these new site files at the repo root.
 3. Push.
 
@@ -81,15 +83,15 @@ cd jamiesonpa.github.io
 # 2. Make a branch so you can review on GitHub before merging.
 git checkout -b new-site
 
-# 3. Stage the existing EVE Tools content into projects\eve-tools\.
-New-Item -ItemType Directory -Force -Path "projects\eve-tools" | Out-Null
+# 3. Stage the existing EVE Tools content into projects\.
+New-Item -ItemType Directory -Force -Path "projects" | Out-Null
 
-# Move every tracked file/folder EXCEPT .git and projects\ into projects\eve-tools\.
+# Move every tracked file/folder EXCEPT .git and projects\ into projects\.
 # (Inspect first with `git ls-files` so you know exactly what will move.)
 Get-ChildItem -Force | Where-Object {
     $_.Name -notin @('.git', 'projects', '.gitignore', 'README.md', '.nojekyll')
 } | ForEach-Object {
-    Move-Item -Path $_.FullName -Destination "projects\eve-tools\" -Force
+    Move-Item -Path $_.FullName -Destination "projects\" -Force
 }
 
 # 4. Copy the NEW site files from this workspace into the repo root.
@@ -104,12 +106,12 @@ Copy-Item "$NEW\assets"           "." -Recurse -Force
 
 # 5. Sanity check: open the site locally before pushing.
 python -m http.server 8000
-# Visit http://localhost:8000  and  http://localhost:8000/projects/eve-tools/
+# Visit http://localhost:8000  and  http://localhost:8000/projects/
 
 # 6. Commit and push.
 git add .
 git status   # eyeball this carefully
-git commit -m "Add new homepage; move EVE Tools to /projects/eve-tools/"
+git commit -m "Add new homepage; move EVE Tools to /projects/"
 git push -u origin new-site
 
 # 7. Open a Pull Request on GitHub from `new-site` → `main` (or your default branch).
@@ -121,14 +123,15 @@ git push -u origin new-site
 - `https://jamiesonpa.github.io/`                       → new homepage
 - `https://jamiesonpa.github.io/research.html`          → research page
 - `https://jamiesonpa.github.io/tutoring.html`          → tutoring page
-- `https://jamiesonpa.github.io/projects/eve-tools/`    → existing EVE Tools, unchanged
+- `https://jamiesonpa.github.io/projects/`              → existing EVE Tools, unchanged
+- `https://jamiesonpa.github.io/projects/eve-tools/`    → redirects to `/projects/`
 
 ### Heads-up about relative paths inside EVE Tools
 
-If your existing EVE Tools HTML/JS uses **absolute paths** like `/script.js` or `/assets/foo.png`, those will break after the move because the URL prefix is now `/projects/eve-tools/`. Two ways to fix:
+If your existing EVE Tools HTML/JS uses **absolute paths** like `/script.js` or `/assets/foo.png`, those will break after the move because the URL prefix is now `/projects/`. Two ways to fix:
 
 - **Preferred:** change those references to relative paths (e.g. `script.js` or `./assets/foo.png`).
-- **Quick hack:** add a `<base href="/projects/eve-tools/">` tag inside the `<head>` of `projects/eve-tools/index.html`.
+- **Quick hack:** add a `<base href="/projects/">` tag inside the `<head>` of `projects/index.html`.
 
 If everything in the old site already uses relative paths (`./` or just `script.js`), no change is needed.
 

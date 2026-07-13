@@ -922,6 +922,147 @@ select:hover {
   text-decoration: underline;
 }
 
+/* --- Presentation Tool page (presentation_tool.html) -------------------
+   Scoped vertical-flow layout for local MP4 + timestamp presentation. */
+.presentation-body {
+  overflow: auto;
+  background: #0a0e16;
+}
+.presentation-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 28px 64px 28px;
+  color: #cfd6e4;
+}
+.presentation-header h1 {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #fff;
+}
+.presentation-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 6px;
+}
+.presentation-blurb {
+  margin: 4px 0 18px 0;
+  font-size: 13px;
+  color: #aab4c8;
+  line-height: 1.5;
+  max-width: 780px;
+}
+.presentation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(20, 28, 42, 0.65);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.presentation-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.presentation-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.presentation-upload span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9aa6bc;
+  font-weight: 600;
+}
+.presentation-upload input[type="file"] {
+  width: 100%;
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.3);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+}
+.presentation-upload input[type="file"]:focus {
+  outline: none;
+  border-color: rgba(155, 188, 255, 0.7);
+  background: rgba(0, 0, 0, 0.4);
+}
+.presentation-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.presentation-actions button {
+  background: rgba(40, 50, 70, 0.9);
+  color: #e6ecf6;
+  border: 1px solid rgba(120, 150, 200, 0.3);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.presentation-actions button:hover {
+  background: rgba(60, 80, 110, 0.95);
+}
+.presentation-status {
+  font-size: 12px;
+  color: #aab4c8;
+}
+.presentation-status.busy {
+  color: #ffd07a;
+}
+.presentation-status.ok {
+  color: #7df09a;
+}
+.presentation-status.err {
+  color: #ff8080;
+}
+.presentation-stage {
+  background: rgba(20, 28, 42, 0.6);
+  border: 1px solid rgba(120, 150, 200, 0.18);
+  border-radius: 8px;
+  padding: 14px;
+}
+.presentation-stage video {
+  display: block;
+  width: 100%;
+  max-width: 1100px;
+  max-height: calc(100vh - 260px);
+  min-height: 280px;
+  margin: 0 auto;
+  background: #000;
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .presentation-shell {
+    padding: 18px 14px 42px 14px;
+  }
+  .presentation-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .presentation-stage {
+    padding: 8px;
+  }
+  .presentation-stage video {
+    min-height: 180px;
+    max-height: none;
+  }
+}
+
 /* --- Damage Violin Analyzer page (analyzer.html) -----------------------
    Same vertical-flow layout pattern as .analysis-body. All selectors are
    scoped to .analyzer-body or .analyzer-shell so they can't reach into

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Presentation Tool - jamiesonpa</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body class="presentation-body">
+    <div class="presentation-shell">
+      <header class="presentation-header">
+        <div class="presentation-title-row">
+          <h1>Presentation Tool</h1>
+          <a href="index.html" class="back-link">&larr; Back to projects</a>
+        </div>
+        <p class="presentation-blurb">
+          Upload an MP4 and a timestamp text file. Press the right arrow to play
+          from one pause point to the next.
+        </p>
+      </header>
+
+      <section class="presentation-form">
+        <div class="presentation-upload-grid">
+          <label class="presentation-upload">
+            <span>MP4 video</span>
+            <input id="video-file" type="file" accept=".mp4,video/mp4" />
+          </label>
+          <label class="presentation-upload">
+            <span>Timestamp TXT</span>
+            <input id="timestamp-file" type="file" accept=".txt,text/plain" />
+          </label>
+        </div>
+
+        <div class="presentation-actions">
+          <button id="reset-button" type="button">Reset to start</button>
+          <span id="presentation-status" class="presentation-status">Upload an MP4 and timestamp file.</span>
+        </div>
+      </section>
+
+      <section class="presentation-stage">
+        <video id="presentation-video" controls preload="metadata"></video>
+      </section>
+    </div>
+
+    <script type="module" src="./js/presentation_tool.js"></script>
+  </body>
+</html>
