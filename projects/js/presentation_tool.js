@@ -45,15 +45,20 @@ function pauseVideo() {
   heldDirection = null;
 }
 
-async function playForward() {
+function isInterruptedPlayError(error) {
+  return error && (error.name === "AbortError" || String(error.message || "").includes("interrupted by a call to pause"));
+}
+
+function playForward() {
   heldDirection = "forward";
   video.playbackRate = isControlDown ? FAST_FORWARD_RATE : NORMAL_FORWARD_RATE;
-  try {
-    await video.play();
-  } catch (error) {
+  video.play().catch((error) => {
+    if (isInterruptedPlayError(error)) {
+      return;
+    }
     pauseVideo();
     exitPresentationModeWithError(`Could not play video: ${error.message}`);
-  }
+  });
 }
 
 function stepBackward() {
@@ -148,6 +153,9 @@ video.addEventListener("ended", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "Control") {
+    if (isPresenting) {
+      event.preventDefault();
+    }
     isControlDown = true;
     updateForwardRate();
     return;
@@ -167,6 +175,9 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("keyup", (event) => {
   if (event.key === "Control") {
+    if (isPresenting) {
+      event.preventDefault();
+    }
     isControlDown = false;
     updateForwardRate();
     return;
