@@ -14,6 +14,7 @@ let metadataLoaded = false;
 let isPresenting = false;
 let isRightArrowDown = false;
 let isFastForwardDown = false;
+let playPromise = null;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -52,16 +53,21 @@ function playVideoAtRate(rate) {
   if (video.playbackRate !== rate) {
     video.playbackRate = rate;
   }
-  if (!video.paused) {
+  if (!video.paused || playPromise) {
     return;
   }
-  video.play().catch((error) => {
-    if (isInterruptedPlayError(error)) {
-      return;
-    }
-    pauseVideo();
-    exitPresentationModeWithError(`Could not play video: ${error.message}`);
-  });
+  playPromise = video.play();
+  playPromise
+    .catch((error) => {
+      if (isInterruptedPlayError(error)) {
+        return;
+      }
+      pauseVideo();
+      exitPresentationModeWithError(`Could not play video: ${error.message}`);
+    })
+    .finally(() => {
+      playPromise = null;
+    });
 }
 
 function stepBackward() {
@@ -186,7 +192,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   event.preventDefault();
-  if (event.key !== "ArrowRight" || !event.repeat) {
+  if (!event.repeat || event.key === "ArrowLeft") {
     handleKeyDown(event);
   }
 });
