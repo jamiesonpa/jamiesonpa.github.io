@@ -1,8 +1,10 @@
 const TOLERANCE_SECONDS = 0.05;
 
+const setupShell = document.querySelector(".presentation-shell");
+const stage = document.getElementById("presentation-stage");
 const videoInput = document.getElementById("video-file");
 const timestampInput = document.getElementById("timestamp-file");
-const resetButton = document.getElementById("reset-button");
+const startButton = document.getElementById("start-button");
 const statusText = document.getElementById("presentation-status");
 const video = document.getElementById("presentation-video");
 
@@ -13,6 +15,7 @@ let currentSegmentIndex = 0;
 let activeTarget = null;
 let isPlayingSegment = false;
 let metadataLoaded = false;
+let isPresenting = false;
 
 function setStatus(message, kind = "") {
   statusText.textContent = message;
@@ -119,6 +122,10 @@ function resetPlayback(message = null) {
   }
 }
 
+function canPresent() {
+  return Boolean(video.src && metadataLoaded && timestamps.length);
+}
+
 function updateReadyStatus() {
   if (!video.src && !rawTimestamps) {
     setStatus("Upload an MP4 and timestamp file.");
@@ -136,7 +143,7 @@ function updateReadyStatus() {
     setStatus("Loading video metadata...", "busy");
     return;
   }
-  setStatus(`${timestamps.length} pause points loaded. Press right arrow to begin.`, "ok");
+  setStatus(`${timestamps.length} pause points loaded. Press Start to begin.`, "ok");
 }
 
 function refreshTimestamps() {
@@ -158,7 +165,7 @@ async function loadTimestampFile(file) {
     const text = await file.text();
     rawTimestamps = parseTimestampText(text);
     refreshTimestamps();
-    resetPlayback(`${timestamps.length} pause points loaded. Press right arrow to begin.`);
+    resetPlayback(`${timestamps.length} pause points loaded. Press Start to begin.`);
   } catch (error) {
     rawTimestamps = null;
     timestamps = [];
@@ -180,31 +187,76 @@ function loadVideoFile(file) {
   setStatus("Loading video metadata...", "busy");
 }
 
-async function advanceSegment() {
+function enterPresentationMode() {
+  if (!canPresent()) {
+    updateReadyStatus();
+    return false;
+  }
+  isPresenting = true;
+  document.body.classList.add("is-presenting");
+  setupShell.classList.add("hidden");
+  stage.classList.remove("hidden");
+  video.removeAttribute("controls");
+  video.controls = false;
+  video.focus();
+  return true;
+}
+
+function exitPresentationModeWithError(message) {
+  isPresenting = false;
+  document.body.classList.remove("is-presenting");
+  stage.classList.add("hidden");
+  setupShell.classList.remove("hidden");
+  setStatus(message, "err");
+}
+
+async function playSegment(direction) {
   if (isPlayingSegment) {
+    if (direction === "backward") {
+      video.pause();
+      activeTarget = null;
+      isPlayingSegment = false;
+    } else {
+      return;
+    }
+  }
+  if (!isPresenting) {
     return;
   }
   if (!video.src || !metadataLoaded || !timestamps.length) {
-    updateReadyStatus();
     return;
   }
+  if (direction === "backward") {
+    currentSegmentIndex = Math.max(0, currentSegmentIndex - 1);
+  }
   if (currentSegmentIndex >= timestamps.length) {
-    setStatus("Presentation complete.", "ok");
-    return;
+    if (direction === "backward") {
+      currentSegmentIndex = timestamps.length - 1;
+    } else {
+      video.pause();
+      return;
+    }
+  }
+  if (currentSegmentIndex < 0) {
+    currentSegmentIndex = 0;
   }
 
   const segmentStart = currentSegmentIndex === 0 ? 0 : timestamps[currentSegmentIndex - 1];
-  activeTarget = timestamps[currentSegmentIndex];
+  const target = timestamps[currentSegmentIndex];
+  if (target === undefined) {
+    return;
+  }
+
+  activeTarget = target;
   isPlayingSegment = true;
   video.currentTime = segmentStart;
-  setStatus(`Playing to ${formatTime(activeTarget)}.`, "busy");
 
   try {
     await video.play();
   } catch (error) {
     isPlayingSegment = false;
     activeTarget = null;
-    setStatus(`Could not play video: ${error.message}`, "err");
+    exitPresentationModeWithError(`Could not play video: ${error.message}`);
   }
 }
 
@@ -222,7 +274,7 @@ function pauseAtTarget() {
   if (currentSegmentIndex >= timestamps.length) {
     setStatus("Presentation complete.", "ok");
   } else {
-    setStatus(`Paused at ${formatTime(video.currentTime)}. Press right arrow for next segment.`, "ok");
+    setStatus(`Paused at ${formatTime(video.currentTime)}.`, "ok");
   }
 }
 
@@ -234,8 +286,11 @@ timestampInput.addEventListener("change", () => {
   loadTimestampFile(timestampInput.files[0]);
 });
 
-resetButton.addEventListener("click", () => {
+startButton.addEventListener("click", () => {
   resetPlayback();
+  if (enterPresentationMode()) {
+    playSegment("forward");
+  }
 });
 
 video.addEventListener("loadedmetadata", () => {
@@ -251,12 +306,11 @@ video.addEventListener("loadedmetadata", () => {
 
 video.addEventListener("timeupdate", pauseAtTarget);
 video.addEventListener("pause", () => {
-  if (activeTarget === null || video.currentTime >= activeTarget - TOLERANCE_SECONDS) {
+  if (!isPresenting || activeTarget === null || video.currentTime >= activeTarget - TOLERANCE_SECONDS) {
     return;
   }
   activeTarget = null;
   isPlayingSegment = false;
-  setStatus("Paused. Press right arrow to replay this segment.", "ok");
 });
 video.addEventListener("ended", () => {
   if (activeTarget !== null) {
@@ -268,7 +322,7 @@ video.addEventListener("ended", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "ArrowRight") {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") {
     return;
   }
   const tagName = event.target && event.target.tagName;
@@ -276,5 +330,5 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   event.preventDefault();
-  advanceSegment();
+  playSegment(event.key === "ArrowLeft" ? "backward" : "forward");
 });
